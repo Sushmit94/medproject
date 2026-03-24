@@ -83,6 +83,14 @@ enum NotificationType {
   INQUIRY
   ORDER
   WELCOME
+  STAFF_LINK
+}
+
+enum LinkRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
 }
 
 // ─────────────────────────────────────────────
@@ -131,6 +139,8 @@ model User {
   jobApplications  JobApplication[]
   reviews          Review[]
   notifications    Notification[]
+  staffLinkRequests  StaffLinkRequest[]
+  linkedStaffEntry   StaffMember?       @relation("LinkedUser")
 
   @@index([role])
 }
@@ -318,6 +328,7 @@ model BusinessProfile {
   products       Product[]
   deals          BusinessDeal[]
   services       BusinessService[]
+  staffLinkRequests StaffLinkRequest[]
 
   sentInquiries     OrderInquiry[] @relation("BuyerInquiries")
   receivedInquiries OrderInquiry[] @relation("SupplierInquiries")
@@ -396,11 +407,33 @@ model StaffMember {
   anniversary DateTime?       // only month+day matters for yearly wishes
   licenseNo   String?         // pharmacist license, doctor registration, etc.
   isActive    Boolean         @default(true)
+  linkedUserId  String?       @unique  // only one business per doctor
+  linkedUser    User?         @relation("LinkedUser", fields: [linkedUserId], references: [id])
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
   @@index([birthday])
   @@index([anniversary])
+}
+
+// ─────────────────────────────────────────────
+// STAFF LINK REQUESTS (2-way linking)
+// ─────────────────────────────────────────────
+
+model StaffLinkRequest {
+  id              String            @id @default(cuid())
+  businessId      String
+  business        BusinessProfile   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  targetUserId    String
+  targetUser      User              @relation(fields: [targetUserId], references: [id])
+  message         String?
+  status          LinkRequestStatus @default(PENDING)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([businessId])
+  @@index([targetUserId])
+  @@unique([businessId, targetUserId])
 }
 
 // ─────────────────────────────────────────────

@@ -10,6 +10,7 @@ import businessRoutes from "./routes/business.routes.js";
 import locationRoutes from "./routes/location.routes.js";
 import searchRoutes from "./routes/search.routes.js";
 import licenseRoutes from "./routes/license.routes.js";
+import staffLinkRoutes from "./routes/staffLink.routes.js";
 import staffRoutes from "./routes/staff.routes.js";
 import productRoutes from "./routes/product.routes.js";
 import orderRoutes from "./routes/order.routes.js";
@@ -50,7 +51,7 @@ app.use(
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100,
+    max: process.env.NODE_ENV === "development" ? 1000 : 200,
     standardHeaders: true,
     legacyHeaders: false,
   })
@@ -72,6 +73,7 @@ app.use("/api/businesses", businessRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/licenses", licenseRoutes);
+app.use("/api/staff/link", staffLinkRoutes);
 app.use("/api/staff", staffRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);

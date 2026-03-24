@@ -245,6 +245,7 @@ export interface StaffMember {
   birthday: string | null;
   anniversary: string | null;
   isActive: boolean;
+  linkedUserId: string | null;
   createdAt: string;
 }
 
@@ -253,6 +254,56 @@ export const staffService = {
   create: (data: Partial<StaffMember>) => api.post<{ data: StaffMember }>("/staff", data),
   update: (id: string, data: Partial<StaffMember>) => api.patch<{ data: StaffMember }>(`/staff/${id}`, data),
   delete: (id: string) => api.delete(`/staff/${id}`),
+};
+
+// ── Staff Linking ──
+export interface StaffLinkRequest {
+  id: string;
+  businessId: string;
+  targetUserId: string;
+  message: string | null;
+  status: "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED";
+  createdAt: string;
+  targetUser?: {
+    id: string;
+    name: string;
+    phone: string;
+    business?: { name: string; image: string | null; category: { name: string } };
+  };
+  business?: {
+    id: string;
+    name: string;
+    image: string | null;
+    address: string | null;
+    category: { name: string };
+  };
+}
+
+export interface SearchedDoctor {
+  id: string;
+  name: string;
+  phone: string;
+  avatar: string | null;
+  business: {
+    id: string;
+    name: string;
+    image: string | null;
+    category: { name: string };
+    address: string | null;
+  };
+}
+
+export const staffLinkService = {
+  search: (phone: string) => api.get<{ data: SearchedDoctor }>(`/staff/link/search?phone=${phone}`),
+  sendRequest: (data: { targetUserId: string; message?: string }) =>
+    api.post<{ data: StaffLinkRequest }>("/staff/link/request", data),
+  sentRequests: () => api.get<{ data: StaffLinkRequest[] }>("/staff/link/requests/sent"),
+  incomingRequests: () => api.get<{ data: StaffLinkRequest[] }>("/staff/link/requests/incoming"),
+  accept: (id: string) => api.post<{ message: string }>(`/staff/link/requests/${id}/accept`, {}),
+  reject: (id: string) => api.post<{ message: string }>(`/staff/link/requests/${id}/reject`, {}),
+  cancel: (id: string) => api.delete(`/staff/link/requests/${id}/cancel`),
+  unlink: (staffId: string) => api.delete(`/staff/link/${staffId}/unlink`),
+  myLink: () => api.get<{ data: StaffMember | null }>("/staff/link/my-link"),
 };
 
 // ── Products ──
