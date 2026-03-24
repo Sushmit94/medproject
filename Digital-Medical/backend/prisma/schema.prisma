@@ -1,0 +1,845 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  BUSINESS
+  CUSTOMER
+}
+
+enum BusinessStatus {
+  PENDING
+  ACTIVE
+  DISABLED
+  REJECTED
+}
+
+enum SubscriptionTier {
+  FREE
+  STANDARD
+  PREMIUM
+}
+
+enum SupplyChainRole {
+  MANUFACTURER
+  WHOLESALER
+  RETAILER
+}
+
+enum LicenseStatus {
+  PENDING
+  VERIFIED
+  EXPIRED
+  REJECTED
+}
+
+enum InquiryStatus {
+  PENDING
+  SEEN
+  ACCEPTED
+  REJECTED
+}
+
+enum BloodDonorStatus {
+  PENDING
+  APPROVED
+  UNAVAILABLE
+}
+
+enum BloodRequestUrgency {
+  CRITICAL
+  NORMAL
+}
+
+enum AdPlacement {
+  HOMEPAGE_BANNER
+  CATEGORY_PAGE
+  LISTING_PAGE
+  DETAIL_PAGE
+  SEARCH_RESULTS
+}
+
+enum NotificationType {
+  SYSTEM
+  BROADCAST
+  LICENSE_EXPIRY
+  BIRTHDAY
+  ANNIVERSARY
+  INQUIRY
+  ORDER
+  WELCOME
+}
+
+// ─────────────────────────────────────────────
+// OTP VERIFICATION
+// ─────────────────────────────────────────────
+
+model Otp {
+  id        String   @id @default(cuid())
+  phone     String?
+  email     String?
+  code      String
+  purpose   String   // SIGNUP, PHONE_VERIFY, EMAIL_VERIFY
+  verified  Boolean  @default(false)
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([phone, purpose])
+  @@index([email, purpose])
+}
+
+// ─────────────────────────────────────────────
+// AUTH & USERS
+// ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  phone         String    @unique
+  password      String    // bcrypt hashed
+  role          UserRole
+  name          String
+  avatar        String?
+  isActive      Boolean   @default(true)
+  phoneVerified Boolean   @default(false)
+  emailVerified Boolean   @default(false)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  business         BusinessProfile?
+  bloodDonor       BloodDonorRegistration?
+  bloodRequests    BloodRequest[]
+  couponRegs       CouponRegistration[]
+  campRegs         CampRegistration[]
+  jobApplications  JobApplication[]
+  reviews          Review[]
+  notifications    Notification[]
+
+  @@index([role])
+}
+
+// ─────────────────────────────────────────────
+// LOCATION
+// ─────────────────────────────────────────────
+
+model State {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  districts District[]
+  createdAt DateTime   @default(now())
+}
+
+model District {
+  id        String   @id @default(cuid())
+  name      String
+  stateId   String
+  state     State    @relation(fields: [stateId], references: [id])
+  cities    City[]
+  createdAt DateTime @default(now())
+
+  @@unique([name, stateId])
+}
+
+model City {
+  id         String   @id @default(cuid())
+  name       String
+  districtId String
+  district   District @relation(fields: [districtId], references: [id])
+  areas      Area[]
+  createdAt  DateTime @default(now())
+
+  @@unique([name, districtId])
+}
+
+model Area {
+  id        String   @id @default(cuid())
+  name      String
+  cityId    String
+  city      City     @relation(fields: [cityId], references: [id])
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  businesses BusinessProfile[]
+  ads        AdAreaMapping[]
+
+  @@unique([name, cityId])
+}
+
+// ─────────────────────────────────────────────
+// CATEGORIES
+// ─────────────────────────────────────────────
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  image       String?
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  isService   Boolean  @default(false) // true for Emergency Services, Health Dept
+
+  // Category feature flags — controls what dashboard sections appear
+  hasDealsIn   Boolean @default(false)
+  hasProducts  Boolean @default(false)
+  hasServices  Boolean @default(false)
+
+  createdAt   DateTime @default(now())
+
+  subcategories     SubCategory[]
+  businesses        BusinessProfile[]
+  keywords          CategoryKeyword[]
+  jobCategories     JobCategory[]
+  ads               Ad[]
+  productCategories ProductCategory[]
+}
+
+model SubCategory {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String
+  icon       String?
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  businesses BusinessSubCategory[]
+
+  @@unique([slug, categoryId])
+}
+
+model CategoryKeyword {
+  id         String   @id @default(cuid())
+  keyword    String
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([keyword, categoryId])
+}
+
+// ─────────────────────────────────────────────
+// BUSINESS PROFILE (all 14+ provider types)
+// ─────────────────────────────────────────────
+
+model BusinessProfile {
+  id         String @id @default(cuid())
+  businessId String @unique // HOS-123456, DOC-789012, etc.
+  userId     String @unique
+  user       User   @relation(fields: [userId], references: [id])
+
+  // Category
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  // Basic info
+  name       String
+  slug       String   @unique
+  about      String?
+  image      String?
+  coverImage String?
+
+  // Location
+  areaId     String?
+  area       Area?    @relation(fields: [areaId], references: [id])
+  address    String?
+  pincode    String?
+  latitude   Float?
+  longitude  Float?
+
+  // Contact
+  phone1     String?
+  phone2     String?
+  phone3     String?
+  whatsapp   String?
+  email      String?
+  website    String?
+
+  // Social
+  facebook   String?
+  instagram  String?
+  youtube    String?
+  googleMaps String?
+
+  // Hours
+  morningOpen  String?
+  morningClose String?
+  eveningOpen  String?
+  eveningClose String?
+  
+  // Designation (for Doctors, Pharmacists, MRs)
+  designation  String?
+
+  // Flags
+  status         BusinessStatus   @default(PENDING)
+  isPopular      Boolean          @default(false)
+  isEmergency    Boolean          @default(false)
+  isVerified     Boolean          @default(false)
+  useCategoryKeywords Boolean     @default(true)
+
+  // Subscription
+  subscriptionTier      SubscriptionTier @default(FREE)
+  subscriptionExpiresAt DateTime?
+
+  // Supply chain (only for Manufacturers, Wholesalers, Retailers)
+  supplyChainRole SupplyChainRole?
+
+  createdBy String? // 'SELF' or admin user id
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  subcategories  BusinessSubCategory[]
+  licenses       License[]
+  staff          StaffMember[]
+  searchKeywords SearchKeyword[]
+  gallery        GalleryItem[]
+  coupons        Coupon[]
+  camps          Camp[]
+  jobs           Job[]
+  reviews        Review[]
+  products       Product[]
+  deals          BusinessDeal[]
+  services       BusinessService[]
+
+  sentInquiries     OrderInquiry[] @relation("BuyerInquiries")
+  receivedInquiries OrderInquiry[] @relation("SupplierInquiries")
+
+  @@index([categoryId])
+  @@index([areaId])
+  @@index([status])
+  @@index([supplyChainRole])
+  @@index([isPopular])
+}
+
+model BusinessSubCategory {
+  id            String          @id @default(cuid())
+  businessId    String
+  business      BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  subCategoryId String
+  subCategory   SubCategory     @relation(fields: [subCategoryId], references: [id])
+
+  @@unique([businessId, subCategoryId])
+}
+
+// ─────────────────────────────────────────────
+// SEARCH KEYWORDS
+// ─────────────────────────────────────────────
+
+model SearchKeyword {
+  id         String          @id @default(cuid())
+  keyword    String
+  businessId String
+  business   BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([keyword])
+  @@unique([keyword, businessId])
+}
+
+// ─────────────────────────────────────────────
+// LICENSES & VERIFICATION
+// ─────────────────────────────────────────────
+
+model License {
+  id           String          @id @default(cuid())
+  businessId   String
+  business     BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  type         String          // DRUG_LICENSE, GST, FSSAI, SHOP_ACT, etc.
+  licenseNo    String
+  issuedBy     String?
+  issueDate    DateTime?
+  expiryDate   DateTime?
+  document     String?         // uploaded file URL
+  status       LicenseStatus   @default(PENDING)
+  verifiedAt   DateTime?
+  verifiedBy   String?         // admin user id who verified
+  rejectionNote String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([expiryDate])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────
+// STAFF & BIRTHDAY/ANNIVERSARY TRACKING
+// ─────────────────────────────────────────────
+
+model StaffMember {
+  id          String          @id @default(cuid())
+  businessId  String
+  business    BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name        String
+  role        String          // OWNER, PHARMACIST, DOCTOR, RECEPTIONIST, STAFF, etc.
+  phone       String?
+  whatsapp    String?
+  email       String?
+  photo       String?
+  birthday    DateTime?       // only month+day matters for yearly wishes
+  anniversary DateTime?       // only month+day matters for yearly wishes
+  licenseNo   String?         // pharmacist license, doctor registration, etc.
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([birthday])
+  @@index([anniversary])
+}
+
+// ─────────────────────────────────────────────
+// PRODUCT CATALOG (Manufacturers & Wholesalers)
+// ─────────────────────────────────────────────
+
+model Product {
+  id            String          @id @default(cuid())
+  businessId    String
+  business      BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name          String
+  slug          String
+  description   String?
+  brand         String?
+  sku           String?
+  packSize      String?         // "10 tablets", "500ml", etc.
+  moq           Int?            // minimum order quantity
+  categoryTag   String?         // legacy free-text tag
+  productCategoryId String?
+  productCategory   ProductCategory? @relation(fields: [productCategoryId], references: [id])
+  image         String?
+  images        String[]        // additional images
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  inquiries OrderInquiry[]
+
+  @@unique([slug, businessId])
+  @@index([categoryTag])
+  @@index([productCategoryId])
+  @@index([name])
+}
+
+// ─────────────────────────────────────────────
+// PRODUCT CATEGORIES (per main category dropdown)
+// ─────────────────────────────────────────────
+
+model ProductCategory {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  isActive   Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  products Product[]
+
+  @@unique([slug, categoryId])
+  @@index([categoryId])
+}
+
+// ─────────────────────────────────────────────
+// BUSINESS DEALS ("Deals In" section)
+// ─────────────────────────────────────────────
+
+model BusinessDeal {
+  id          String          @id @default(cuid())
+  businessId  String
+  business    BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  title       String          // "Allopathic Medicines", "Ayurvedic & Herbal Products"
+  description String?         // Rich text/bullet points
+  image       String?
+  sortOrder   Int             @default(0)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([businessId])
+}
+
+// ─────────────────────────────────────────────
+// BUSINESS SERVICES
+// ─────────────────────────────────────────────
+
+model BusinessService {
+  id          String          @id @default(cuid())
+  businessId  String
+  business    BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  image       String?
+  price       String?         // Free text like "₹500", "₹200-500", "Free"
+  sortOrder   Int             @default(0)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([businessId])
+}
+
+// ─────────────────────────────────────────────
+// ORDER INQUIRIES (no money, just inquiry flow)
+// ─────────────────────────────────────────────
+
+model OrderInquiry {
+  id          String          @id @default(cuid())
+  // Who is ordering
+  buyerId     String
+  buyer       BusinessProfile @relation("BuyerInquiries", fields: [buyerId], references: [id])
+  // From whom
+  supplierId  String
+  supplier    BusinessProfile @relation("SupplierInquiries", fields: [supplierId], references: [id])
+  // What product
+  productId   String?
+  product     Product?        @relation(fields: [productId], references: [id])
+  // Inquiry details
+  productName String          // in case product is custom/not listed
+  quantity    Int
+  unit        String?         // "strips", "boxes", "bottles"
+  notes       String?
+  status      InquiryStatus   @default(PENDING)
+  // WhatsApp delivery tracking
+  whatsappSent    Boolean     @default(false)
+  whatsappSentAt  DateTime?
+  respondedAt     DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([buyerId])
+  @@index([supplierId])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────
+// COUPONS
+// ─────────────────────────────────────────────
+
+model Coupon {
+  id          String          @id @default(cuid())
+  code        String          @unique
+  name        String
+  slug        String          @unique
+  description String?
+  image       String?
+  businessId  String
+  business    BusinessProfile @relation(fields: [businessId], references: [id])
+  validFrom   DateTime        @default(now())
+  validUntil  DateTime
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+
+  registrations CouponRegistration[]
+}
+
+model CouponRegistration {
+  id        String   @id @default(cuid())
+  couponId  String
+  coupon    Coupon   @relation(fields: [couponId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  phone     String
+  whatsapp  String?
+  age       Int?
+  gender    String?
+  createdAt DateTime @default(now())
+
+  @@unique([couponId, phone])
+}
+
+// ─────────────────────────────────────────────
+// CAMPS & EVENTS
+// ─────────────────────────────────────────────
+
+model Camp {
+  id          String          @id @default(cuid())
+  name        String
+  slug        String          @unique
+  description String?
+  image       String?
+  businessId  String
+  business    BusinessProfile @relation(fields: [businessId], references: [id])
+  eventDate   DateTime
+  timeFrom    String?
+  timeTo      String?
+  venue       String?
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+
+  registrations CampRegistration[]
+}
+
+model CampRegistration {
+  id        String   @id @default(cuid())
+  campId    String
+  camp      Camp     @relation(fields: [campId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  phone     String
+  whatsapp  String?
+  age       Int?
+  gender    String?
+  createdAt DateTime @default(now())
+
+  @@unique([campId, phone])
+}
+
+// ─────────────────────────────────────────────
+// BLOOD DONOR
+// ─────────────────────────────────────────────
+
+model BloodDonorRegistration {
+  id            String           @id @default(cuid())
+  userId        String           @unique
+  user          User             @relation(fields: [userId], references: [id])
+  bloodGroup    String           // A+, A-, B+, B-, O+, O-, AB+, AB-
+  lastDonation  DateTime?
+  isAvailable   Boolean          @default(true)
+  status        BloodDonorStatus @default(PENDING)
+  stateId       String?
+  districtId    String?
+  cityId        String?
+  address       String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([bloodGroup])
+  @@index([status])
+}
+
+model BloodRequest {
+  id              String             @id @default(cuid())
+  userId          String
+  user            User               @relation(fields: [userId], references: [id])
+  attendantName   String
+  attendantPhone  String
+  patientName     String
+  patientAge      Int?
+  patientGender   String?
+  bloodGroup      String
+  unitsNeeded     Int
+  reason          String?
+  urgency         BloodRequestUrgency @default(NORMAL)
+  hospitalName    String?
+  stateId         String?
+  districtId      String?
+  cityId          String?
+  address         String?
+  isFulfilled     Boolean            @default(false)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// HEALTHCARE JOBS
+// ─────────────────────────────────────────────
+
+model JobCategory {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  isActive   Boolean  @default(true)
+  jobs       Job[]
+}
+
+model Job {
+  id              String          @id @default(cuid())
+  businessId      String
+  business        BusinessProfile @relation(fields: [businessId], references: [id])
+  jobCategoryId   String
+  jobCategory     JobCategory     @relation(fields: [jobCategoryId], references: [id])
+  title           String
+  slug            String          @unique
+  description     String?
+  salary          String?
+  education       String?
+  experience      String?
+  ageRange        String?
+  gender          String?
+  selectionProcess String?
+  lastDate        DateTime?
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+
+  applications JobApplication[]
+}
+
+model JobApplication {
+  id            String   @id @default(cuid())
+  jobId         String
+  job           Job      @relation(fields: [jobId], references: [id])
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  name          String
+  phone         String
+  dob           DateTime?
+  gender        String?
+  education     String?
+  experience    String?
+  currentWork   String?
+  designation   String?
+  currentSalary String?
+  expectedSalary String?
+  preferredLocation String?
+  photo         String?
+  resume        String?
+  createdAt     DateTime @default(now())
+
+  @@unique([jobId, phone])
+}
+
+// ─────────────────────────────────────────────
+// CONTENT: NEWS, BLOGS, GALLERY
+// ─────────────────────────────────────────────
+
+model News {
+  id        String   @id @default(cuid())
+  title     String
+  link      String   // YouTube or Facebook URL
+  type      String   // YOUTUBE, FACEBOOK
+  image     String?
+  cityId    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Blog {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  content     String   // rich text / markdown
+  excerpt     String?
+  thumbnail   String?
+  bannerImage String?
+  cityId      String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model GalleryItem {
+  id         String           @id @default(cuid())
+  businessId String?
+  business   BusinessProfile? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  type       String           // PHOTO, VIDEO
+  url        String
+  caption    String?
+  cityId     String?
+  createdAt  DateTime         @default(now())
+}
+
+// ─────────────────────────────────────────────
+// REVIEWS & RATINGS
+// ─────────────────────────────────────────────
+
+model Review {
+  id         String          @id @default(cuid())
+  businessId String
+  business   BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User            @relation(fields: [userId], references: [id])
+  rating     Int             // 1-5
+  comment    String?
+  isApproved Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+
+  @@unique([businessId, userId])
+}
+
+// ─────────────────────────────────────────────
+// ADVERTISING
+// ─────────────────────────────────────────────
+
+model Ad {
+  id         String      @id @default(cuid())
+  title      String?
+  image      String
+  link       String?
+  placement  AdPlacement
+  categoryId String?
+  category   Category?   @relation(fields: [categoryId], references: [id])
+  cityId     String?
+  isActive   Boolean     @default(true)
+  startDate  DateTime    @default(now())
+  endDate    DateTime?
+  createdAt  DateTime    @default(now())
+
+  areas AdAreaMapping[]
+}
+
+model AdAreaMapping {
+  id     String @id @default(cuid())
+  adId   String
+  ad     Ad     @relation(fields: [adId], references: [id], onDelete: Cascade)
+  areaId String
+  area   Area   @relation(fields: [areaId], references: [id])
+
+  @@unique([adId, areaId])
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead])
+}
+
+// ─────────────────────────────────────────────
+// CONTACT & INQUIRIES
+// ─────────────────────────────────────────────
+
+model ContactSubmission {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String
+  city      String?
+  subject   String?
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AdvertiserInquiry {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  whatsapp  String?
+  email     String?
+  city      String?
+  category  String?
+  message   String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

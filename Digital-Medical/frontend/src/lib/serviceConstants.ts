@@ -1,0 +1,81 @@
+import type { EmergencyNumber, HealthDepartment } from "@/types";
+
+export const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+
+export const NATIONAL_EMERGENCY_NUMBERS: EmergencyNumber[] = [
+  { id: 1, name: "National Emergency", number: "112", description: "Single emergency number", icon: "Phone", available: "24/7" },
+  { id: 2, name: "Ambulance", number: "108", description: "Ambulance service", icon: "Phone", available: "24/7" },
+  { id: 3, name: "Police", number: "100", description: "Police helpline", icon: "Phone", available: "24/7" },
+  { id: 4, name: "Fire Brigade", number: "101", description: "Fire department", icon: "Phone", available: "24/7" },
+  { id: 5, name: "Women Helpline", number: "181", description: "Women in distress", icon: "Phone", available: "24/7" },
+  { id: 6, name: "Child Helpline", number: "1098", description: "Child welfare", icon: "Phone", available: "24/7" },
+  { id: 7, name: "Mental Health", number: "08046110007", description: "iCall psychosocial helpline", icon: "Phone", available: "Mon–Sat 8am–10pm" },
+  { id: 8, name: "COVID Helpline", number: "1075", description: "Ministry of Health", icon: "Phone", available: "24/7" },
+];
+
+export const HEALTH_DEPARTMENTS: HealthDepartment[] = [
+  {
+    id: 1,
+    name: "Ministry of Health and Family Welfare",
+    ministry: "Government of India",
+    description: "Responsible for national health policy, disease prevention, and healthcare delivery.",
+    icon: "Building2",
+    role: ["National Health Mission", "Disease Surveillance", "Family Planning", "Medical Education"],
+    helpline: "1075",
+    website: "https://www.mohfw.gov.in",
+    count: "All India",
+  },
+  {
+    id: 2,
+    name: "AYUSH Ministry",
+    ministry: "Government of India",
+    description: "Promotes Ayurveda, Yoga, Unani, Siddha, and Homeopathy systems of healthcare.",
+    icon: "Building2",
+    role: ["Traditional Medicine", "Yoga Promotion", "AYUSH Research", "Quality Control"],
+    helpline: "1800-11-2031",
+    website: "https://www.ayush.gov.in",
+    count: "All India",
+  },
+  {
+    id: 3,
+    name: "Central Drugs Standard Control Organisation",
+    ministry: "Directorate General of Health Services",
+    description: "Regulates pharmaceuticals, clinical trials, and medical devices standards across India.",
+    icon: "Building2",
+    role: ["Drug Approval", "Clinical Trials", "Import Regulation", "Quality Standards"],
+    website: "https://www.cdsco.gov.in",
+    count: "All India",
+  },
+  {
+    id: 4,
+    name: "Indian Council of Medical Research",
+    ministry: "Department of Health Research",
+    description: "Apex body for biomedical research formulation, coordination, and promotion.",
+    icon: "Building2",
+    role: ["Biomedical Research", "Clinical Studies", "Epidemic Control", "Vaccine Development"],
+    website: "https://www.icmr.gov.in",
+    count: "All India",
+  },
+  {
+    id: 5,
+    name: "National Health Authority",
+    ministry: "Ayushman Bharat",
+    description: "Implements Ayushman Bharat Pradhan Mantri Jan Arogya Yojana (PM-JAY).",
+    icon: "Building2",
+    role: ["Health Insurance", "PM-JAY Implementation", "Quality Assurance", "Grievance Redressal"],
+    helpline: "14555",
+    website: "https://www.nha.gov.in",
+    count: "All India",
+  },
+  {
+    id: 6,
+    name: "Food Safety and Standards Authority",
+    ministry: "Ministry of Health & FW",
+    description: "Regulates food safety standards and ensures quality of food products in India.",
+    icon: "Building2",
+    role: ["Food Standards", "License & Registration", "Quality Testing", "Consumer Protection"],
+    helpline: "1800-112-100",
+    website: "https://www.fssai.gov.in",
+    count: "All India",
+  },
+];
