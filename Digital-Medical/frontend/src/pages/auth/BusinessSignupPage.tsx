@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { authService, otpService, categoryService, locationService, type CategoryItem, type LocationItem } from "@/lib/services";
+import { isProfessional } from "@/utils/categoryHelpers";
 import toast from "react-hot-toast";
 
 export default function BusinessSignupPage() {
@@ -65,6 +66,8 @@ export default function BusinessSignupPage() {
     }
   }, [form.cityId]);
 
+  const selectedCategory = categories.find((c) => c.id === form.categoryId);
+  const isProf = isProfessional(selectedCategory?.slug);
   const canProceed1 = form.categoryId && form.businessName.trim();
   const canProceed2 = form.stateId && form.districtId && form.cityId;
 
@@ -212,14 +215,16 @@ export default function BusinessSignupPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-text-primary mb-1.5">Business Name</label>
+                <label className="block text-sm font-medium text-text-primary mb-1.5">
+                  {isProf ? "Your Full Name" : "Business Name"}
+                </label>
                 <div className="relative">
                   <Building2 size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
                   <input
                     type="text"
                     value={form.businessName}
                     onChange={(e) => update("businessName", e.target.value)}
-                    placeholder="e.g. City Hospital, MedPlus Pharmacy"
+                    placeholder={isProf ? "e.g. Dr. Rahul Sharma" : "e.g. City Hospital, MedPlus Pharmacy"}
                     className="w-full pl-10 pr-4 py-3 border border-border rounded-xl text-sm focus:border-accent focus:ring-2 focus:ring-accent/10 transition-all"
                     required
                   />

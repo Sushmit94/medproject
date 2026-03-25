@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Building2, FileText, Users, Package, ShoppingCart,
   Bell, Star, Settings, LogOut, Menu, X, ChevronRight,
-  Clock, CheckCircle, AlertTriangle, Image, Ticket, Handshake, Stethoscope, Truck,
+  Clock, CheckCircle, AlertTriangle, Handshake, Stethoscope, Truck,
+  Ticket, Briefcase, Tent, User, Link2, Check, XCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { isProfessional } from "@/utils/categoryHelpers";
+import { staffLinkService, type StaffLinkRequest, type StaffMember } from "@/lib/services";
 import ProfilePage from "./business/ProfilePage";
 import LicensesPage from "./business/LicensesPage";
 import StaffPage from "./business/StaffPage";
@@ -19,27 +22,40 @@ import DealsPage from "./business/DealsPage";
 import ServicesPage from "./business/ServicesPage";
 import SuppliersPage from "./business/SuppliersPage";
 import SupplierDetailPage from "./business/SupplierDetailPage";
+import LinkedBusinessPage from "./business/LinkedBusinessPage";
 
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const location = useLocation();
   const { logout, business } = useAuth();
   const navigate = useNavigate();
 
-  const links = [
-    { to: "/business", icon: LayoutDashboard, label: "Dashboard", exact: true },
-    { to: "/business/profile", icon: Building2, label: "Business Profile" },
-    { to: "/business/licenses", icon: FileText, label: "Licenses" },
-    { to: "/business/staff", icon: Users, label: "Staff" },
-    ...(business?.category?.hasDealsIn ? [{ to: "/business/deals", icon: Handshake, label: "Deals In" }] : []),
-    ...(business?.category?.hasProducts ? [{ to: "/business/products", icon: Package, label: "Products" }] : []),
-    ...(business?.category?.hasServices ? [{ to: "/business/services", icon: Stethoscope, label: "Services" }] : []),
-    ...(business?.supplyChainRole === "RETAILER" || business?.supplyChainRole === "WHOLESALER" ? [{ to: "/business/suppliers", icon: Truck, label: "Suppliers" }] : []),
-    { to: "/business/orders", icon: ShoppingCart, label: "Inquiries" },
-    { to: "/business/coupons", icon: Ticket, label: "Coupons" },
-    { to: "/business/reviews", icon: Star, label: "Reviews" },
-    { to: "/business/notifications", icon: Bell, label: "Notifications" },
-    { to: "/business/settings", icon: Settings, label: "Settings" },
-  ];
+  const isProf = isProfessional(business?.category?.slug);
+
+  const links = isProf
+    ? [
+        { to: "/business", icon: LayoutDashboard, label: "Dashboard", exact: true },
+        { to: "/business/profile", icon: User, label: "Personal Profile" },
+        { to: "/business/linked", icon: Link2, label: "Linked Business" },
+        { to: "/business/notifications", icon: Bell, label: "Notifications" },
+        { to: "/business/settings", icon: Settings, label: "Settings" },
+      ]
+    : [
+        { to: "/business", icon: LayoutDashboard, label: "Dashboard", exact: true },
+        { to: "/business/profile", icon: Building2, label: "Business Profile" },
+        { to: "/business/licenses", icon: FileText, label: "Licenses" },
+        { to: "/business/staff", icon: Users, label: "Staff" },
+        ...(business?.category?.hasDealsIn ? [{ to: "/business/deals", icon: Handshake, label: "Deals In" }] : []),
+        ...(business?.category?.hasProducts ? [{ to: "/business/products", icon: Package, label: "Products" }] : []),
+        ...(business?.category?.hasServices ? [{ to: "/business/services", icon: Stethoscope, label: "Services" }] : []),
+        ...(business?.supplyChainRole === "RETAILER" || business?.supplyChainRole === "WHOLESALER" ? [{ to: "/business/suppliers", icon: Truck, label: "Suppliers" }] : []),
+        { to: "/business/orders", icon: ShoppingCart, label: "Inquiries" },
+        { to: "/business/coupons", icon: Ticket, label: "Coupons" },
+        { to: "/business/camps", icon: Tent, label: "Camps" },
+        { to: "/business/jobs", icon: Briefcase, label: "Jobs" },
+        { to: "/business/reviews", icon: Star, label: "Reviews" },
+        { to: "/business/notifications", icon: Bell, label: "Notifications" },
+        { to: "/business/settings", icon: Settings, label: "Settings" },
+      ];
 
   const isActive = (to: string, exact?: boolean) =>
     exact ? location.pathname === to : location.pathname.startsWith(to);
@@ -100,7 +116,179 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
-function DashboardHome() {
+/* ── Professional Dashboard ── */
+function ProfessionalDashboardHome() {
+  const { business } = useAuth();
+  const [linkedStaff, setLinkedStaff] = useState<StaffMember | null>(null);
+  const [incomingRequests, setIncomingRequests] = useState<StaffLinkRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [linkRes, reqRes] = await Promise.allSettled([
+          staffLinkService.myLink(),
+          staffLinkService.incomingRequests(),
+        ]);
+        if (linkRes.status === "fulfilled") setLinkedStaff(linkRes.value.data);
+        if (reqRes.status === "fulfilled") setIncomingRequests(reqRes.value.data);
+      } catch { /* ignore */ } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const handleAccept = async (id: string) => {
+    try {
+      await staffLinkService.accept(id);
+      setMessage({ type: "success", text: "Request accepted! You are now linked." });
+      // Reload data
+      const [linkRes, reqRes] = await Promise.allSettled([
+        staffLinkService.myLink(),
+        staffLinkService.incomingRequests(),
+      ]);
+      if (linkRes.status === "fulfilled") setLinkedStaff(linkRes.value.data);
+      if (reqRes.status === "fulfilled") setIncomingRequests(reqRes.value.data);
+    } catch (err: any) {
+      setMessage({ type: "error", text: err?.message || "Failed to accept" });
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    try {
+      await staffLinkService.reject(id);
+      setIncomingRequests((prev) => prev.filter((r) => r.id !== id));
+      setMessage({ type: "success", text: "Request declined" });
+    } catch {
+      setMessage({ type: "error", text: "Failed to decline" });
+    }
+  };
+
+  const pendingRequests = incomingRequests.filter((r) => r.status === "PENDING");
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-white rounded-xl border border-border-light p-6 animate-pulse">
+            <div className="h-4 w-48 bg-surface-tertiary rounded" />
+            <div className="h-3 w-32 bg-surface-tertiary rounded mt-3" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-text-primary">
+          Welcome, {business?.name}
+        </h1>
+        <p className="text-sm text-text-secondary mt-1">
+          {business?.category?.slug === "doctors" ? "Doctor" :
+           business?.category?.slug === "pharmacists" ? "Pharmacist" :
+           "Medical Representative"} Dashboard
+        </p>
+      </div>
+
+      {message && (
+        <div className={`p-3 rounded-xl text-sm font-medium ${message.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+          {message.text}
+          <button onClick={() => setMessage(null)} className="ml-2 opacity-60 hover:opacity-100">×</button>
+        </div>
+      )}
+
+      {/* Linked Business Card */}
+      <div className="bg-white rounded-xl border border-border-light p-6">
+        <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <Link2 size={18} /> Linked Business
+        </h2>
+        {linkedStaff ? (
+          <div className="flex items-center gap-4">
+            {linkedStaff.business?.image ? (
+              <img src={linkedStaff.business.image} alt="" className="w-14 h-14 rounded-xl object-cover" />
+            ) : (
+              <div className="w-14 h-14 bg-accent/10 rounded-xl flex items-center justify-center text-accent font-bold text-lg">
+                {linkedStaff.business?.name?.charAt(0)}
+              </div>
+            )}
+            <div>
+              <p className="font-semibold text-text-primary">{linkedStaff.business?.name}</p>
+              <p className="text-sm text-text-secondary">{linkedStaff.business?.category?.name}</p>
+              {linkedStaff.business?.address && (
+                <p className="text-xs text-text-tertiary mt-1">{linkedStaff.business.address}</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center py-6 text-center">
+            <div className="w-12 h-12 bg-surface-tertiary rounded-full flex items-center justify-center mb-3">
+              <Link2 size={20} className="text-text-tertiary" />
+            </div>
+            <p className="text-sm text-text-tertiary">You are not linked to any business yet</p>
+            <p className="text-xs text-text-tertiary mt-1">
+              A hospital or pharmacy will send you a link request
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Pending Link Requests */}
+      {pendingRequests.length > 0 && (
+        <div className="bg-white rounded-xl border border-border-light p-6">
+          <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <Bell size={18} /> Pending Link Requests
+          </h2>
+          <div className="space-y-3">
+            {pendingRequests.map((req) => (
+              <div key={req.id} className="flex items-center justify-between gap-4 p-3 bg-surface-secondary rounded-xl">
+                <div className="flex items-center gap-3">
+                  {req.business?.image ? (
+                    <img src={req.business.image} className="w-10 h-10 rounded-full object-cover" alt="" />
+                  ) : (
+                    <div className="w-10 h-10 bg-accent/10 rounded-full flex items-center justify-center text-accent font-bold text-sm">
+                      {req.business?.name?.charAt(0)}
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">{req.business?.name}</p>
+                    <p className="text-xs text-text-tertiary">
+                      {req.business?.category?.name} · {req.business?.address}
+                    </p>
+                    {req.message && <p className="text-xs text-text-secondary mt-1 italic">"{req.message}"</p>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleReject(req.id)}
+                    className="p-2 text-text-tertiary hover:text-red-500 hover:bg-red-50 rounded-lg"
+                    title="Decline"
+                  >
+                    <XCircle size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleAccept(req.id)}
+                    className="px-3 py-1.5 text-sm text-white bg-accent rounded-lg hover:bg-accent/90 flex items-center gap-1"
+                  >
+                    <Check size={13} /> Accept
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Business Dashboard (original) ── */
+function BusinessDashboardHome() {
   const { business } = useAuth();
 
   const stats = [
@@ -197,6 +385,13 @@ function DashboardHome() {
   );
 }
 
+/* ── Dashboard Home Wrapper ── */
+function DashboardHome() {
+  const { business } = useAuth();
+  const isProf = isProfessional(business?.category?.slug);
+  return isProf ? <ProfessionalDashboardHome /> : <BusinessDashboardHome />;
+}
+
 export default function BusinessDashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user } = useAuth();
@@ -206,7 +401,6 @@ export default function BusinessDashboardLayout() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="lg:pl-64">
-        {/* Top bar */}
         {/* Top bar */}
         <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-border-light px-6 py-4 flex items-center justify-between">
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-text-secondary hover:bg-surface-tertiary rounded-lg">
@@ -239,6 +433,7 @@ export default function BusinessDashboardLayout() {
             <Route path="profile" element={<ProfilePage />} />
             <Route path="licenses" element={<LicensesPage />} />
             <Route path="staff" element={<StaffPage />} />
+            <Route path="linked" element={<LinkedBusinessPage />} />
             <Route path="deals" element={<DealsPage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="services" element={<ServicesPage />} />

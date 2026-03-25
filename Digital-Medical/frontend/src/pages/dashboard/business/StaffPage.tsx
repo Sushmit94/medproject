@@ -491,67 +491,72 @@ function StaffModal({ staff, onClose, onSaved, onError }: {
 function LinkDoctorModal({ onClose, onSent, onError }: {
   onClose: () => void; onSent: () => void; onError: (msg: string) => void;
 }) {
-  const [phone, setPhone] = useState("");
+  const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
-  const [found, setFound] = useState<any>(null);
-  const [notFound, setNotFound] = useState<string>("");
-  const [sending, setSending] = useState(false);
+  const [results, setResults] = useState<any[]>([]);
+  const [noResults, setNoResults] = useState(false);
+  const [sending, setSending] = useState<string | null>(null);
   const [inviteMessage, setInviteMessage] = useState("");
+  const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const handleSearch = async () => {
-    if (phone.length < 10) return;
+    if (query.length < 3) return;
     setSearching(true);
-    setFound(null);
-    setNotFound("");
+    setResults([]);
+    setNoResults(false);
+    setSelectedUser(null);
     try {
-      const res = await staffLinkService.search(phone);
-      setFound(res.data);
+      const res = await staffLinkService.search(query);
+      if (res.data.length === 0) {
+        setNoResults(true);
+      } else {
+        setResults(res.data);
+      }
     } catch (err: any) {
-      setNotFound(err?.message || "No registered profile found");
+      setNoResults(true);
     } finally {
       setSearching(false);
     }
   };
 
-  const handleSend = async () => {
-    if (!found) return;
-    setSending(true);
+  const handleSend = async (targetUser: any) => {
+    setSending(targetUser.id);
     try {
       await staffLinkService.sendRequest({
-        targetUserId: found.id,
+        targetUserId: targetUser.id,
         message: inviteMessage || undefined,
       });
       onSent();
     } catch (err: any) {
       onError(err?.message || "Failed to send request");
     } finally {
-      setSending(false);
+      setSending(null);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md">
+      <div className="bg-white rounded-2xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-5 border-b border-border-light">
-          <h2 className="text-base font-semibold text-text-primary">Link a Doctor / Professional</h2>
+          <h2 className="text-base font-semibold text-text-primary">Link a Professional</h2>
           <button onClick={onClose} className="p-1 text-text-tertiary hover:text-text-primary"><X size={18} /></button>
         </div>
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 flex-1 overflow-y-auto">
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-1.5">
-              Search by registered phone number
+              Search by name or phone number
             </label>
             <div className="flex gap-2">
               <input
-                value={phone}
-                onChange={(e) => { setPhone(e.target.value); setFound(null); setNotFound(""); }}
-                placeholder="10-digit phone number"
-                maxLength={10}
+                value={query}
+                onChange={(e) => { setQuery(e.target.value); setResults([]); setNoResults(false); setSelectedUser(null); }}
+                placeholder="Enter name or phone..."
                 className="flex-1 px-3.5 py-2.5 border border-border-light rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none"
+                onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
               />
               <button
                 onClick={handleSearch}
-                disabled={phone.length < 10 || searching}
+                disabled={query.length < 3 || searching}
                 className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent/90 disabled:opacity-50"
               >
                 {searching ? "..." : "Search"}
@@ -559,34 +564,46 @@ function LinkDoctorModal({ onClose, onSent, onError }: {
             </div>
           </div>
 
-          {found && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
-              <div className="flex items-center gap-3">
-                {found.business?.image ? (
-                  <img src={found.business.image} className="w-10 h-10 rounded-full object-cover" alt="" />
-                ) : (
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold text-sm">
-                    {found.name?.charAt(0)}
+          {results.length > 0 && (
+            <div className="space-y-2">
+              {results.map((r) => (
+                <div
+                  key={r.id}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all ${selectedUser?.id === r.id
+                    ? "border-accent bg-accent/5"
+                    : "border-border-light hover:border-accent/30"
+                  }`}
+                  onClick={() => setSelectedUser(r)}
+                >
+                  <div className="flex items-center gap-3">
+                    {r.business?.image ? (
+                      <img src={r.business.image} className="w-10 h-10 rounded-full object-cover" alt="" />
+                    ) : (
+                      <div className="w-10 h-10 bg-accent/10 rounded-full flex items-center justify-center text-accent font-bold text-sm">
+                        {r.name?.charAt(0)}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold text-text-primary">{r.name}</p>
+                      <p className="text-xs text-text-secondary">{r.business?.name} · {r.business?.category?.name}</p>
+                      <p className="text-xs text-text-tertiary">{r.phone}</p>
+                    </div>
                   </div>
-                )}
-                <div>
-                  <p className="text-sm font-semibold text-green-800">{found.name}</p>
-                  <p className="text-xs text-green-600">{found.business?.name} · {found.business?.category?.name}</p>
                 </div>
-              </div>
+              ))}
             </div>
           )}
 
-          {notFound && (
+          {noResults && (
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
-              <p className="text-sm text-amber-700 font-medium">{notFound}</p>
+              <p className="text-sm text-amber-700 font-medium">No matching professionals found</p>
               <p className="text-xs text-amber-600 mt-0.5">
-                The person must have a registered business profile on Digital Medical to be linked.
+                The person must have a registered profile on Digital Medical and belong to a linkable category.
               </p>
             </div>
           )}
 
-          {found && (
+          {selectedUser && (
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1.5">
                 Message (optional)
@@ -605,13 +622,13 @@ function LinkDoctorModal({ onClose, onSent, onError }: {
             <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm font-medium text-text-secondary hover:bg-surface-tertiary rounded-xl">
               Cancel
             </button>
-            {found && (
+            {selectedUser && (
               <button
-                onClick={handleSend}
-                disabled={sending}
+                onClick={() => handleSend(selectedUser)}
+                disabled={sending === selectedUser.id}
                 className="px-5 py-2.5 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent/90 disabled:opacity-50"
               >
-                {sending ? "Sending..." : "Send Link Request"}
+                {sending === selectedUser.id ? "Sending..." : "Send Link Request"}
               </button>
             )}
           </div>
@@ -620,3 +637,4 @@ function LinkDoctorModal({ onClose, onSent, onError }: {
     </div>
   );
 }
+

@@ -1,82 +1,111 @@
 import { Router, Request, Response } from "express";
 import prisma from "../lib/prisma.js";
 import { requireAuth } from "../middleware/auth.js";
+import { isProfessional, canLinkTo, LINKING_RULES } from "../utils/categoryHelpers.js";
 
 const router = Router();
 
-// ── Search for a business user by phone (owner searches for doctor) ──
+// Helper: get caller's business profile with category
+async function getCallerBusiness(userId: string) {
+  return prisma.businessProfile.findUnique({
+    where: { userId },
+    include: { category: { select: { slug: true, name: true } } },
+  });
+}
+
+// ── Search for linkable professionals by name or phone ──
 router.get("/search", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { phone } = req.query;
-    if (!phone || typeof phone !== "string" || phone.length < 10) {
-      res.status(400).json({ error: "Valid phone number required" });
+    const { q } = req.query;
+    if (!q || typeof q !== "string" || q.length < 3) {
+      res.status(400).json({ error: "Search query must be at least 3 characters" });
       return;
     }
 
-    const ownerBusiness = await prisma.businessProfile.findUnique({
-      where: { userId: req.user!.userId },
-    });
-    if (!ownerBusiness) {
+    const callerBusiness = await getCallerBusiness(req.user!.userId);
+    console.log("🔍 Caller slug:", callerBusiness?.category?.slug);
+    console.log("🔍 Allowed slugs:", LINKING_RULES[callerBusiness?.category?.slug ?? '']);
+    if (!callerBusiness) {
       res.status(403).json({ error: "Only business owners can search" });
       return;
     }
 
-    // Find a BUSINESS user with that phone (not themselves)
-    const targetUser = await prisma.user.findFirst({
+    // Professionals cannot search for targets to link
+    if (isProfessional(callerBusiness.category.slug)) {
+      res.status(403).json({ error: "Professionals cannot send link requests" });
+      return;
+    }
+
+    // Get allowed target slugs based on LINKING_RULES
+    const allowedSlugs = LINKING_RULES[callerBusiness.category.slug] ?? [];
+    if (allowedSlugs.length === 0) {
+      res.json({ data: [] });
+      return;
+    }
+
+    // Find matching business profiles whose category slug is in allowed targets
+    const profiles = await prisma.businessProfile.findMany({
       where: {
-        phone,
-        role: "BUSINESS",
-        id: { not: req.user!.userId },
-        isActive: true,
+        category: { slug: { in: allowedSlugs } },
+        userId: { not: req.user!.userId },
+        user: { isActive: true },
+        //status: "ACTIVE",
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { phone1: { contains: q } },
+          { user: { phone: { contains: q } } },
+        ],
       },
       select: {
         id: true,
         name: true,
-        phone: true,
-        avatar: true,
-        business: {
+        image: true,
+        phone1: true,
+        address: true,
+        category: { select: { name: true, slug: true } },
+        user: {
           select: {
             id: true,
             name: true,
-            image: true,
-            category: { select: { name: true } },
-            address: true,
+            phone: true,
+            avatar: true,
           },
         },
+        staff: {
+          where: { linkedUserId: { not: null } },
+          select: { linkedUserId: true },
+        },
       },
+      take: 20,
     });
 
-    if (!targetUser || !targetUser.business) {
-      res.status(404).json({ error: "No registered business profile found for this phone number" });
-      return;
-    }
-
-    // Check if already linked somewhere
-    const existingLink = await prisma.staffMember.findFirst({
-      where: { linkedUserId: targetUser.id },
-      include: { business: { select: { name: true } } },
+    // Exclude profiles that are already linked (have a StaffMember with linkedUserId pointing to them)
+    const alreadyLinkedUserIds = new Set<string>();
+    const linkedStaff = await prisma.staffMember.findMany({
+      where: { linkedUserId: { not: null } },
+      select: { linkedUserId: true },
     });
-    if (existingLink) {
-      res.status(409).json({
-        error: `This professional is already linked to "${existingLink.business.name}". They must unlink first.`,
-      });
-      return;
-    }
-
-    // Check if there's already a pending request from this business
-    const existingRequest = await prisma.staffLinkRequest.findFirst({
-      where: {
-        businessId: ownerBusiness.id,
-        targetUserId: targetUser.id,
-        status: "PENDING",
-      },
+    linkedStaff.forEach((s) => {
+      if (s.linkedUserId) alreadyLinkedUserIds.add(s.linkedUserId);
     });
-    if (existingRequest) {
-      res.status(409).json({ error: "A pending request already exists for this person" });
-      return;
-    }
 
-    res.json({ data: targetUser });
+    const results = profiles
+      .filter((p) => !alreadyLinkedUserIds.has(p.user.id))
+      .map((p) => ({
+        id: p.user.id,
+        name: p.user.name,
+        phone: p.user.phone,
+        avatar: p.user.avatar,
+        business: {
+          id: p.id,
+          name: p.name,
+          image: p.image,
+          category: { name: p.category.name },
+          address: p.address,
+        },
+      }));
+
+    res.json({ data: results });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Search failed" });
@@ -86,11 +115,15 @@ router.get("/search", requireAuth, async (req: Request, res: Response) => {
 // ── Owner: Send a link request ──
 router.post("/request", requireAuth, async (req: Request, res: Response) => {
   try {
-    const ownerBusiness = await prisma.businessProfile.findUnique({
-      where: { userId: req.user!.userId },
-    });
-    if (!ownerBusiness) {
+    const callerBusiness = await getCallerBusiness(req.user!.userId);
+    if (!callerBusiness) {
       res.status(403).json({ error: "Only business owners can send link requests" });
+      return;
+    }
+
+    // Professionals cannot send link requests
+    if (isProfessional(callerBusiness.category.slug)) {
+      res.status(403).json({ error: "Professionals cannot send link requests" });
       return;
     }
 
@@ -103,9 +136,22 @@ router.post("/request", requireAuth, async (req: Request, res: Response) => {
     // Verify target user exists and is a BUSINESS user
     const targetUser = await prisma.user.findFirst({
       where: { id: targetUserId, role: "BUSINESS", isActive: true },
+      include: {
+        business: {
+          include: { category: { select: { slug: true, name: true } } },
+        },
+      },
     });
-    if (!targetUser) {
+    if (!targetUser || !targetUser.business) {
       res.status(404).json({ error: "Target user not found" });
+      return;
+    }
+
+    // Check canLinkTo
+    if (!canLinkTo(callerBusiness.category.slug, targetUser.business.category.slug)) {
+      res.status(403).json({
+        error: `${callerBusiness.category.name} cannot link to ${targetUser.business.category.name}`,
+      });
       return;
     }
 
@@ -121,7 +167,7 @@ router.post("/request", requireAuth, async (req: Request, res: Response) => {
     // Check for existing pending request
     const existing = await prisma.staffLinkRequest.findFirst({
       where: {
-        businessId: ownerBusiness.id,
+        businessId: callerBusiness.id,
         targetUserId,
         status: "PENDING",
       },
@@ -135,12 +181,12 @@ router.post("/request", requireAuth, async (req: Request, res: Response) => {
     const linkRequest = await prisma.staffLinkRequest.upsert({
       where: {
         businessId_targetUserId: {
-          businessId: ownerBusiness.id,
+          businessId: callerBusiness.id,
           targetUserId,
         },
       },
       create: {
-        businessId: ownerBusiness.id,
+        businessId: callerBusiness.id,
         targetUserId,
         message: message || null,
         status: "PENDING",
@@ -157,8 +203,8 @@ router.post("/request", requireAuth, async (req: Request, res: Response) => {
         userId: targetUserId,
         type: "STAFF_LINK",
         title: "Staff Link Request",
-        message: `${ownerBusiness.name} wants to add you as staff.`,
-        link: "/business/staff",
+        message: `${callerBusiness.name} wants to add you as staff.`,
+        link: "/business/linked",
       },
     });
 
@@ -204,7 +250,7 @@ router.get("/requests/sent", requireAuth, async (req: Request, res: Response) =>
   }
 });
 
-// ── Doctor: List incoming requests ──
+// ── Professional: List incoming requests ──
 router.get("/requests/incoming", requireAuth, async (req: Request, res: Response) => {
   try {
     const requests = await prisma.staffLinkRequest.findMany({
@@ -216,6 +262,7 @@ router.get("/requests/incoming", requireAuth, async (req: Request, res: Response
             name: true,
             image: true,
             address: true,
+            phone1: true,
             category: { select: { name: true } },
           },
         },
@@ -230,7 +277,7 @@ router.get("/requests/incoming", requireAuth, async (req: Request, res: Response
   }
 });
 
-// ── Doctor: Accept a link request ──
+// ── Professional: Accept a link request ──
 router.post("/requests/:id/accept", requireAuth, async (req: Request, res: Response) => {
   try {
     const linkRequest = await prisma.staffLinkRequest.findFirst({
@@ -242,7 +289,7 @@ router.post("/requests/:id/accept", requireAuth, async (req: Request, res: Respo
       return;
     }
 
-    // Check if this doctor is already linked to any business
+    // Check if this professional is already linked to any business
     const existingLink = await prisma.staffMember.findFirst({
       where: { linkedUserId: req.user!.userId },
     });
@@ -251,8 +298,8 @@ router.post("/requests/:id/accept", requireAuth, async (req: Request, res: Respo
       return;
     }
 
-    // Get the doctor's profile to auto-populate staff entry
-    const doctorUser = await prisma.user.findUnique({
+    // Get the professional's profile to auto-populate staff entry
+    const professionalUser = await prisma.user.findUnique({
       where: { id: req.user!.userId },
       include: {
         business: {
@@ -271,11 +318,11 @@ router.post("/requests/:id/accept", requireAuth, async (req: Request, res: Respo
         data: {
           businessId: linkRequest.businessId,
           linkedUserId: req.user!.userId,
-          name: doctorUser?.name || "Staff",
-          role: doctorUser?.business?.designation || doctorUser?.business?.category?.name || "Doctor",
-          phone: doctorUser?.phone || null,
-          email: doctorUser?.business?.email || null,
-          photo: doctorUser?.business?.image || null,
+          name: professionalUser?.name || "Staff",
+          role: professionalUser?.business?.designation || professionalUser?.business?.category?.name || "Staff",
+          phone: professionalUser?.phone || null,
+          email: professionalUser?.business?.email || null,
+          photo: professionalUser?.business?.image || null,
         },
       }),
       // Notify the business owner
@@ -284,7 +331,7 @@ router.post("/requests/:id/accept", requireAuth, async (req: Request, res: Respo
           userId: linkRequest.business.userId,
           type: "STAFF_LINK",
           title: "Link Request Accepted",
-          message: `${doctorUser?.name} accepted your staff link request.`,
+          message: `${professionalUser?.name} accepted your staff link request.`,
           link: "/business/staff",
         },
       }),
@@ -297,7 +344,7 @@ router.post("/requests/:id/accept", requireAuth, async (req: Request, res: Respo
   }
 });
 
-// ── Doctor: Reject a link request ──
+// ── Professional: Reject a link request ──
 router.post("/requests/:id/reject", requireAuth, async (req: Request, res: Response) => {
   try {
     const linkRequest = await prisma.staffLinkRequest.findFirst({
@@ -375,11 +422,11 @@ router.delete("/:staffId/unlink", requireAuth, async (req: Request, res: Respons
       return;
     }
 
-    // Verify caller is either the business owner or the linked doctor
+    // Verify caller is either the business owner or the linked professional
     const isOwner = staffMember.business.userId === req.user!.userId;
-    const isDoctor = staffMember.linkedUserId === req.user!.userId;
+    const isProfessionalUser = staffMember.linkedUserId === req.user!.userId;
 
-    if (!isOwner && !isDoctor) {
+    if (!isOwner && !isProfessionalUser) {
       res.status(403).json({ error: "Not authorized to unlink" });
       return;
     }
@@ -405,7 +452,7 @@ router.delete("/:staffId/unlink", requireAuth, async (req: Request, res: Respons
           message: isOwner
             ? `${staffMember.business.name} has removed you from their staff.`
             : `A linked staff member has left your organization.`,
-          link: "/business/staff",
+          link: isOwner ? "/business/linked" : "/business/staff",
         },
       }),
     ]);
@@ -417,7 +464,7 @@ router.delete("/:staffId/unlink", requireAuth, async (req: Request, res: Respons
   }
 });
 
-// ── Doctor: Check my link status ──
+// ── Professional: Check my link status ──
 router.get("/my-link", requireAuth, async (req: Request, res: Response) => {
   try {
     const linkedStaff = await prisma.staffMember.findFirst({
@@ -429,6 +476,7 @@ router.get("/my-link", requireAuth, async (req: Request, res: Response) => {
             name: true,
             image: true,
             address: true,
+            phone1: true,
             category: { select: { name: true } },
           },
         },

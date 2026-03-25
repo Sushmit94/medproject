@@ -247,6 +247,13 @@ export interface StaffMember {
   isActive: boolean;
   linkedUserId: string | null;
   createdAt: string;
+  business?: {
+    id: string;
+    name: string;
+    image: string | null;
+    address: string | null;
+    category?: { name: string };
+  };
 }
 
 export const staffService = {
@@ -294,7 +301,7 @@ export interface SearchedDoctor {
 }
 
 export const staffLinkService = {
-  search: (phone: string) => api.get<{ data: SearchedDoctor }>(`/staff/link/search?phone=${phone}`),
+  search: (q: string) => api.get<{ data: SearchedDoctor[] }>(`/staff/link/search?q=${encodeURIComponent(q)}`),
   sendRequest: (data: { targetUserId: string; message?: string }) =>
     api.post<{ data: StaffLinkRequest }>("/staff/link/request", data),
   sentRequests: () => api.get<{ data: StaffLinkRequest[] }>("/staff/link/requests/sent"),
