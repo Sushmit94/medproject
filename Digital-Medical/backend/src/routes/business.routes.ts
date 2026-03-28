@@ -349,11 +349,11 @@ router.patch(
       const phone = updated.user.phone;
       const email = updated.user.email;
       if (status === "ACTIVE") {
-        sendApprovalWA(phone, updated.name).catch(() => {});
-        if (email) sendApprovalEmail(email, updated.name).catch(() => {});
+        sendApprovalWA(phone, updated.name).catch(() => { });
+        if (email) sendApprovalEmail(email, updated.name).catch(() => { });
       } else if (status === "REJECTED") {
-        sendRejectionWA(phone, updated.name).catch(() => {});
-        if (email) sendRejectionEmail(email, updated.name).catch(() => {});
+        sendRejectionWA(phone, updated.name).catch(() => { });
+        if (email) sendRejectionEmail(email, updated.name).catch(() => { });
       }
 
       res.json(updated);

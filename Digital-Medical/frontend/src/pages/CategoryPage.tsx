@@ -124,9 +124,8 @@ export default function CategoryPage() {
               <div className="space-y-1">
                 <button
                   onClick={() => setSelectedSubcategory(null)}
-                  className={`w-full text-left text-sm px-2 py-1.5 rounded-lg transition-colors ${
-                    !selectedSubcategory ? "bg-primary/10 text-primary font-medium" : "text-text-secondary hover:bg-surface-secondary"
-                  }`}
+                  className={`w-full text-left text-sm px-2 py-1.5 rounded-lg transition-colors ${!selectedSubcategory ? "bg-primary/10 text-primary font-medium" : "text-text-secondary hover:bg-surface-secondary"
+                    }`}
                 >
                   All
                 </button>
@@ -134,16 +133,15 @@ export default function CategoryPage() {
                   <button
                     key={sub.slug}
                     onClick={() => setSelectedSubcategory(sub.name)}
-                    className={`w-full text-left text-sm px-2 py-1.5 rounded-lg transition-colors ${
-                      selectedSubcategory === sub.name ? "bg-primary/10 text-primary font-medium" : "text-text-secondary hover:bg-surface-secondary"
-                    }`}
+                    className={`w-full text-left text-sm px-2 py-1.5 rounded-lg transition-colors ${selectedSubcategory === sub.name ? "bg-primary/10 text-primary font-medium" : "text-text-secondary hover:bg-surface-secondary"
+                      }`}
                   >
                     {sub.name}
                   </button>
                 ))}
               </div>
 
-              <hr className="my-4 border-border-light" />
+              {/* <hr className="my-4 border-border-light" />
 
               <h3 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">Plan</h3>
               <div className="space-y-1">
@@ -151,14 +149,14 @@ export default function CategoryPage() {
                   <button
                     key={p}
                     onClick={() => setFilterPlan(p)}
-                    className={`w-full text-left text-sm px-2 py-1.5 rounded-lg capitalize transition-colors ${
-                      filterPlan === p ? "bg-primary/10 text-primary font-medium" : "text-text-secondary hover:bg-surface-secondary"
-                    }`}
+                    className={`w-full text-left text-sm px-2 py-1.5 rounded-lg capitalize transition-colors ${filterPlan === p ? "bg-primary/10 text-primary font-medium" : "text-text-secondary hover:bg-surface-secondary"
+                      }`}
                   >
                     {p === "all" ? "All Plans" : p}
                   </button>
                 ))}
               </div>
+*/}
             </div>
           </aside>
 
@@ -225,7 +223,7 @@ export default function CategoryPage() {
                     </button>
                   ))}
                 </div>
-                <div className="flex flex-wrap gap-1.5">
+                { /*    <div className="flex flex-wrap gap-1.5">
                   {(["all", "platinum", "gold", "silver", "free"] as const).map((p) => (
                     <button
                       key={p}
@@ -236,6 +234,7 @@ export default function CategoryPage() {
                     </button>
                   ))}
                 </div>
+*/}
               </div>
             )}
 
