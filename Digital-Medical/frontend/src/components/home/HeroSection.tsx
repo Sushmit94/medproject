@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, MapPin, ChevronDown, ArrowRight, Shield, Users, Building2, Star, CheckCircle } from "lucide-react";
 
@@ -18,10 +18,22 @@ const stats = [
   { icon: Star, value: "4.8/5", label: "Avg Rating", color: "text-accent bg-accent/10" },
 ];
 
+// Must match HERO_SEARCH_THRESHOLD in Header.tsx
+const HERO_SEARCH_THRESHOLD = 150;
+
 export default function HeroSection() {
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("All India");
+  const [searchScrolled, setSearchScrolled] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const onScroll = () => {
+      setSearchScrolled(window.scrollY > HERO_SEARCH_THRESHOLD);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,39 +72,55 @@ export default function HeroSection() {
               India&apos;s largest medical directory — search 12,400+ hospitals, 58,600+ doctors, and 34,200+ pharmacies across 550+ cities.
             </p>
 
-            {/* Search Bar */}
-            <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-xl shadow-slate-900/8 border border-slate-100 p-2 mb-6 max-w-xl">
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="relative flex items-center gap-2 px-4 py-3 rounded-xl bg-surface-tertiary sm:w-40 shrink-0">
-                  <MapPin size={15} className="text-accent shrink-0" />
-                  <select
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="bg-transparent text-sm font-medium text-text-primary appearance-none w-full pr-5 cursor-pointer focus:outline-none"
+            {/*
+              Search + City Bar — fades out + slides up on desktop when the
+              navbar takes over. On mobile always visible.
+            */}
+            <div
+              className={`
+                mb-6 max-w-xl
+               md:transition-all md:duration-[600ms] md:ease-[cubic-bezier(0.22,1,0.36,1)] md:origin-top-left
+${searchScrolled
+                  ? "md:opacity-0 md:-translate-y-[140px] md:scale-[0.8] md:pointer-events-none"
+                  : "md:opacity-100 md:translate-y-0 md:scale-100 md:pointer-events-auto"
+                }
+              `}
+            >
+              <form onSubmit={handleSearch} className="bg-white rounded-2xl shadow-xl shadow-slate-900/8 border border-slate-100 p-2">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  {/* City / Location selector */}
+                  <div className="relative flex items-center gap-2 px-4 py-3 rounded-xl bg-surface-tertiary sm:w-40 shrink-0">
+                    <MapPin size={15} className="text-accent shrink-0" />
+                    <select
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="bg-transparent text-sm font-medium text-text-primary appearance-none w-full pr-5 cursor-pointer focus:outline-none"
+                    >
+                      {cities.map((c) => <option key={c}>{c}</option>)}
+                    </select>
+                    <ChevronDown size={13} className="absolute right-3 text-text-tertiary pointer-events-none" />
+                  </div>
+                  {/* Search input */}
+                  <div className="flex-1 relative">
+                    <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
+                    <input
+                      type="text"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Search doctors, hospitals..."
+                      className="w-full pl-10 pr-3 py-3 text-sm rounded-xl bg-surface-tertiary focus:bg-white focus:ring-2 focus:ring-primary/15 transition-all placeholder:text-text-tertiary"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-6 py-3 bg-accent text-white text-sm font-bold rounded-xl hover:bg-accent-dark shadow-md shadow-accent/25 hover:shadow-lg transition-all flex items-center justify-center gap-2 shrink-0"
                   >
-                    {cities.map((c) => <option key={c}>{c}</option>)}
-                  </select>
-                  <ChevronDown size={13} className="absolute right-3 text-text-tertiary pointer-events-none" />
+                    Search
+                    <ArrowRight size={15} />
+                  </button>
                 </div>
-                <div className="flex-1 relative">
-                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
-                  <input
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search doctors, hospitals..."
-                    className="w-full pl-10 pr-3 py-3 text-sm rounded-xl bg-surface-tertiary focus:bg-white focus:ring-2 focus:ring-primary/15 transition-all placeholder:text-text-tertiary"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="px-6 py-3 bg-accent text-white text-sm font-bold rounded-xl hover:bg-accent-dark shadow-md shadow-accent/25 hover:shadow-lg transition-all flex items-center justify-center gap-2 shrink-0"
-                >
-                  Search
-                  <ArrowRight size={15} />
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
 
             {/* Quick Searches */}
             <div className="flex flex-wrap items-center gap-2 mb-8">
@@ -191,7 +219,7 @@ export default function HeroSection() {
       {/* Wave separator */}
       <div className="relative">
         <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full" preserveAspectRatio="none">
-          <path d="M0 60L48 52C96 44 192 28 288 22C384 16 480 20 576 28C672 36 768 48 864 48C960 48 1056 36 1152 28C1248 20 1344 16 1392 14L1440 12V60H1392C1344 60 1248 60 1152 60C1056 60 960 60 864 60C768 60 672 60 576 60C480 60 384 60 288 60C192 60 96 60 48 60H0Z" fill="white"/>
+          <path d="M0 60L48 52C96 44 192 28 288 22C384 16 480 20 576 28C672 36 768 48 864 48C960 48 1056 36 1152 28C1248 20 1344 16 1392 14L1440 12V60H1392C1344 60 1248 60 1152 60C1056 60 960 60 864 60C768 60 672 60 576 60C480 60 384 60 288 60C192 60 96 60 48 60H0Z" fill="white" />
         </svg>
       </div>
     </section>

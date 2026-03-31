@@ -26,19 +26,26 @@ const navLinks = [
   { label: "News", to: "/news", icon: Newspaper },
 ];
 
+const HERO_SEARCH_THRESHOLD = 150;
+
 export default function Header() {
   const [query, setQuery] = useState("");
   const [city, setCity] = useState("All India");
   const [cityOpen, setCityOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [showNavSearch, setShowNavSearch] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, isAdmin, isBusiness } = useAuth();
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener("scroll", onScroll);
+    const onScroll = () => {
+      const y = window.scrollY;
+      setScrolled(y > 10);
+      setShowNavSearch(y > HERO_SEARCH_THRESHOLD);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
@@ -80,9 +87,8 @@ export default function Header() {
 
       {/* Main Header */}
       <header
-        className={`sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b transition-all duration-300 ${
-          scrolled ? "border-border shadow-lg shadow-slate-900/5" : "border-transparent"
-        }`}
+        className={`sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b transition-all duration-300 ${scrolled ? "border-border shadow-lg shadow-slate-900/5" : "border-transparent"
+          }`}
       >
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex items-center gap-5 h-[64px]">
@@ -100,41 +106,50 @@ export default function Header() {
               />
             </Link>
 
-            {/* City Selector */}
-            <div className="relative hidden md:block">
-              <button
-                onClick={() => setCityOpen(!cityOpen)}
-                className="flex items-center gap-2 px-3.5 py-2 text-sm bg-surface-tertiary rounded-lg hover:bg-surface-secondary border border-transparent hover:border-border transition-all"
-              >
-                <MapPin size={14} className="text-primary" />
-                <span className="text-text-primary font-medium max-w-24 truncate">{city}</span>
-                <ChevronDown size={13} className={`text-text-tertiary transition-transform duration-200 ${cityOpen ? "rotate-180" : ""}`} />
-              </button>
-              {cityOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setCityOpen(false)} />
-                  <div className="absolute top-full left-0 mt-2 w-52 bg-white rounded-xl shadow-xl shadow-slate-900/10 border border-border-light p-1.5 z-20 max-h-72 overflow-y-auto">
-                    {cities.map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => { setCity(c); setCityOpen(false); }}
-                        className={`w-full text-left px-3 py-2.5 text-sm rounded-lg transition-colors ${
-                          city === c
+            {/* Scroll-in group */}
+            <div
+              className={`
+                hidden md:flex items-center gap-2
+                transition-all duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] flex-1 min-w-0 origin-left
+                ${showNavSearch
+                  ? "opacity-100 translate-y-0 scale-100 pointer-events-auto max-w-2xl"
+                  : "opacity-0 translate-y-12 scale-90 pointer-events-none max-w-0 overflow-hidden"
+                }
+              `}
+            >
+              {/* City selector */}
+              <div className="relative shrink-0">
+                <button
+                  onClick={() => setCityOpen(!cityOpen)}
+                  className="flex items-center gap-2 px-3.5 py-2 text-sm bg-surface-tertiary rounded-lg hover:bg-surface-secondary border border-transparent hover:border-border transition-all whitespace-nowrap"
+                >
+                  <MapPin size={14} className="text-primary" />
+                  <span className="text-text-primary font-medium max-w-24 truncate">{city}</span>
+                  <ChevronDown size={13} className={`text-text-tertiary transition-transform duration-200 ${cityOpen ? "rotate-180" : ""}`} />
+                </button>
+                {cityOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setCityOpen(false)} />
+                    <div className="absolute top-full left-0 mt-2 w-52 bg-white rounded-xl shadow-xl shadow-slate-900/10 border border-border-light p-1.5 z-20 max-h-72 overflow-y-auto">
+                      {cities.map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => { setCity(c); setCityOpen(false); }}
+                          className={`w-full text-left px-3 py-2.5 text-sm rounded-lg transition-colors ${city === c
                             ? "bg-primary text-white font-medium"
                             : "text-text-secondary hover:bg-surface-tertiary"
-                        }`}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+                            }`}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
 
-            {/* Search */}
-            <form onSubmit={handleSearch} className="flex-1 max-w-lg hidden md:flex">
-              <div className="flex w-full bg-surface-tertiary rounded-xl overflow-hidden border border-transparent focus-within:border-primary/30 focus-within:bg-white focus-within:shadow-md focus-within:shadow-primary/5 transition-all">
+              {/* Search bar */}
+              <form onSubmit={handleSearch} className="flex flex-1 bg-surface-tertiary rounded-xl overflow-hidden border border-transparent focus-within:border-primary/30 focus-within:bg-white focus-within:shadow-md focus-within:shadow-primary/5 transition-all">
                 <div className="relative flex-1">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
                   <input
@@ -151,8 +166,8 @@ export default function Header() {
                 >
                   Search
                 </button>
-              </div>
-            </form>
+              </form>
+            </div>
 
             {/* Right Actions */}
             <div className="flex items-center gap-1.5 ml-auto">
@@ -226,11 +241,10 @@ export default function Header() {
                   <Link
                     key={link.to}
                     to={link.to}
-                    className={`flex items-center gap-1.5 px-4 py-3 text-[13px] font-medium whitespace-nowrap border-b-2 transition-all ${
-                      isActive
-                        ? "border-primary text-primary"
-                        : "border-transparent text-text-secondary hover:text-primary hover:border-primary/30"
-                    }`}
+                    className={`flex items-center gap-1.5 px-4 py-3 text-[13px] font-medium whitespace-nowrap border-b-2 transition-all ${isActive
+                      ? "border-primary text-primary"
+                      : "border-transparent text-text-secondary hover:text-primary hover:border-primary/30"
+                      }`}
                   >
                     <Icon size={14} />
                     {link.label}
@@ -274,11 +288,10 @@ export default function Header() {
                     <Link
                       key={link.to}
                       to={link.to}
-                      className={`flex items-center gap-2.5 px-3.5 py-3 text-sm rounded-xl transition-all ${
-                        isActive
-                          ? "bg-primary-light text-primary font-medium"
-                          : "text-text-secondary hover:bg-surface-tertiary"
-                      }`}
+                      className={`flex items-center gap-2.5 px-3.5 py-3 text-sm rounded-xl transition-all ${isActive
+                        ? "bg-primary-light text-primary font-medium"
+                        : "text-text-secondary hover:bg-surface-tertiary"
+                        }`}
                     >
                       <Icon size={16} className={isActive ? "text-primary" : "text-text-tertiary"} />
                       {link.label}
