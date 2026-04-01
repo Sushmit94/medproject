@@ -4,7 +4,7 @@ import {
   Search, MapPin, ChevronDown, Menu, X, Phone,
   Building2, Stethoscope, Pill, Microscope, Heart,
   Siren, Droplets, Briefcase, CalendarDays, Newspaper,
-  LogIn, UserPlus, User, LogOut,
+  LogIn, User, LogOut,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -210,13 +210,6 @@ export default function Header() {
                     <LogIn size={15} />
                     Login
                   </Link>
-                  <Link
-                    to="/signup"
-                    className="hidden sm:flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-accent rounded-lg hover:bg-accent-dark shadow-sm shadow-accent/20 hover:shadow-md hover:shadow-accent/30 transition-all"
-                  >
-                    <UserPlus size={15} />
-                    Sign Up
-                  </Link>
                 </>
               )}
               <button
@@ -324,9 +317,6 @@ export default function Header() {
                     </Link>
                     <Link to="/login" className="flex-1 py-3 text-center text-sm font-medium border border-border rounded-xl text-text-secondary hover:bg-surface-tertiary transition-colors">
                       Login
-                    </Link>
-                    <Link to="/signup" className="flex-1 py-3 text-center text-sm font-semibold text-white bg-primary rounded-xl hover:bg-primary-dark transition-colors">
-                      Sign Up
                     </Link>
                   </>
                 )}

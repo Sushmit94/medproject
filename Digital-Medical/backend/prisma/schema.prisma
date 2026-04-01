@@ -120,7 +120,7 @@ model User {
   id            String    @id @default(cuid())
   email         String?   @unique
   phone         String    @unique
-  password      String    // bcrypt hashed
+  password      String?    // bcrypt hashed
   role          UserRole
   name          String
   avatar        String?

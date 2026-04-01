@@ -24,16 +24,18 @@ export const uploadService = {
 };
 
 // ── Auth ──
+
+// Still used for business/admin password login
 export interface LoginPayload {
   identifier: string;
   password: string;
 }
 
+// No password for customer signup — phone is pre-verified via OTP at login
 export interface SignupPayload {
   name: string;
   phone: string;
   email?: string;
-  password: string;
 }
 
 export interface BusinessSignupPayload {
@@ -71,20 +73,49 @@ export interface AuthResponse {
   } | null;
 }
 
+// Response from verifyLoginOtp — either logs in existing user or signals new user
+export interface OtpLoginResponse {
+  isNewUser: boolean;
+  phone?: string;
+  // Present only when isNewUser === false
+  token?: string;
+  user?: { id: string; name: string; role: string };
+  business?: AuthResponse["business"];
+}
+
 export const authService = {
-  login: (data: LoginPayload) => api.post<AuthResponse>("/auth/login", data),
+  // ── Customer OTP login ──
+  requestLoginOtp: (phone: string) =>
+    api.post<{ message: string }>("/auth/login/request-otp", { phone }),
+
+  verifyLoginOtp: (phone: string, code: string) =>
+    api.post<OtpLoginResponse>("/auth/login/verify-otp", { phone, code }),
+
+  // ── Customer signup (passwordless — phone already verified via login OTP) ──
   signup: (data: SignupPayload) => api.post<AuthResponse>("/auth/signup", data),
+
+  // ── Business / Admin password login (unchanged) ──
+  login: (data: LoginPayload) => api.post<AuthResponse>("/auth/login", data),
+
   businessSignup: (data: BusinessSignupPayload) =>
     api.post<AuthResponse>("/auth/business/signup", data),
-  me: () => api.get<AuthResponse["user"] & { business?: AuthResponse["business"] }>("/auth/me"),
+
+  me: () =>
+    api.get<AuthResponse["user"] & { business?: AuthResponse["business"] }>(
+      "/auth/me"
+    ),
 };
 
-// ── OTP ──
+// ── OTP (used by signup & other flows like email verify) ──
 export const otpService = {
   send: (data: { phone?: string; email?: string; purpose?: string }) =>
     api.post<{ message: string }>("/otp/send", data),
-  verify: (data: { phone?: string; email?: string; code: string; purpose?: string }) =>
-    api.post<{ verified: boolean }>("/otp/verify", data),
+  verify: (data: {
+    phone?: string;
+    email?: string;
+    code: string;
+    purpose?: string;
+  }) => api.post<{ verified: boolean }>("/otp/verify", data),
 };
 
 // ── Categories ──
@@ -114,11 +145,15 @@ export const categoryService = {
   list: () => api.get<CategoryItem[]>("/categories"),
   listAll: () => api.get<CategoryItem[]>("/categories?all=true"),
   getBySlug: (slug: string) => api.get<CategoryDetail>(`/categories/${slug}`),
-  create: (data: Partial<CategoryItem>) => api.post<CategoryItem>("/categories", data),
-  update: (id: string, data: Partial<CategoryItem>) => api.patch<CategoryItem>(`/categories/${id}`, data),
+  create: (data: Partial<CategoryItem>) =>
+    api.post<CategoryItem>("/categories", data),
+  update: (id: string, data: Partial<CategoryItem>) =>
+    api.patch<CategoryItem>(`/categories/${id}`, data),
   delete: (id: string) => api.delete(`/categories/${id}`),
-  createSubcategory: (categoryId: string, data: { name: string; slug: string; icon?: string }) =>
-    api.post(`/categories/${categoryId}/subcategories`, data),
+  createSubcategory: (
+    categoryId: string,
+    data: { name: string; slug: string; icon?: string }
+  ) => api.post(`/categories/${categoryId}/subcategories`, data),
 };
 
 // ── Locations ──
@@ -136,9 +171,12 @@ export const locationService = {
   areas: (cityId: string) =>
     api.get<LocationItem[]>(`/locations/cities/${cityId}/areas`),
   createState: (data: { name: string }) => api.post("/locations/states", data),
-  createDistrict: (data: { name: string; stateId: string }) => api.post("/locations/districts", data),
-  createCity: (data: { name: string; districtId: string }) => api.post("/locations/cities", data),
-  createArea: (data: { name: string; cityId: string }) => api.post("/locations/areas", data),
+  createDistrict: (data: { name: string; stateId: string }) =>
+    api.post("/locations/districts", data),
+  createCity: (data: { name: string; districtId: string }) =>
+    api.post("/locations/cities", data),
+  createArea: (data: { name: string; cityId: string }) =>
+    api.post("/locations/areas", data),
 };
 
 // ── Search ──
@@ -160,7 +198,8 @@ export interface PublicBusinessCard {
 }
 
 export const searchService = {
-  businesses: (params: string) => api.get<PaginatedResponse<PublicBusinessCard>>(`/search?${params}`),
+  businesses: (params: string) =>
+    api.get<PaginatedResponse<PublicBusinessCard>>(`/search?${params}`),
 };
 
 // ── Business Profile ──
@@ -198,14 +237,31 @@ export interface BusinessProfile {
   isVerified: boolean;
   isEmergency: boolean;
   category: { id: string; name: string; slug: string };
-  area: { id: string; name: string; city: { id: string; name: string; district: { id: string; name: string; state: { id: string; name: string } } } } | null;
+  area: {
+    id: string;
+    name: string;
+    city: {
+      id: string;
+      name: string;
+      district: {
+        id: string;
+        name: string;
+        state: { id: string; name: string };
+      };
+    };
+  } | null;
 }
 
 export const businessService = {
   getMyProfile: () => api.get<BusinessProfile>("/businesses/me"),
-  updateProfile: (data: Partial<BusinessProfile>) => api.patch<BusinessProfile>("/businesses/me", data),
-  list: (params?: string) => api.get<PaginatedResponse<BusinessProfile>>(`/businesses${params ? `?${params}` : ""}`),
-  getBySlug: (slug: string) => api.get<BusinessProfile>(`/businesses/${slug}`),
+  updateProfile: (data: Partial<BusinessProfile>) =>
+    api.patch<BusinessProfile>("/businesses/me", data),
+  list: (params?: string) =>
+    api.get<PaginatedResponse<BusinessProfile>>(
+      `/businesses${params ? `?${params}` : ""}`
+    ),
+  getBySlug: (slug: string) =>
+    api.get<BusinessProfile>(`/businesses/${slug}`),
 };
 
 // ── Licenses ──
@@ -225,10 +281,14 @@ export interface License {
 
 export const licenseService = {
   myLicenses: () => api.get<{ data: License[] }>("/licenses/my"),
-  create: (data: Partial<License>) => api.post<{ data: License }>("/licenses", data),
-  update: (id: string, data: Partial<License>) => api.patch<{ data: License }>(`/licenses/${id}`, data),
-  // Admin
-  listAll: (params?: string) => api.get<PaginatedResponse<License>>(`/licenses/admin/all${params ? `?${params}` : ""}`),
+  create: (data: Partial<License>) =>
+    api.post<{ data: License }>("/licenses", data),
+  update: (id: string, data: Partial<License>) =>
+    api.patch<{ data: License }>(`/licenses/${id}`, data),
+  listAll: (params?: string) =>
+    api.get<PaginatedResponse<License>>(
+      `/licenses/admin/all${params ? `?${params}` : ""}`
+    ),
   verify: (id: string, data: { status: string; rejectionNote?: string }) =>
     api.patch(`/licenses/admin/${id}/verify`, data),
 };
@@ -258,8 +318,10 @@ export interface StaffMember {
 
 export const staffService = {
   myStaff: () => api.get<{ data: StaffMember[] }>("/staff/my"),
-  create: (data: Partial<StaffMember>) => api.post<{ data: StaffMember }>("/staff", data),
-  update: (id: string, data: Partial<StaffMember>) => api.patch<{ data: StaffMember }>(`/staff/${id}`, data),
+  create: (data: Partial<StaffMember>) =>
+    api.post<{ data: StaffMember }>("/staff", data),
+  update: (id: string, data: Partial<StaffMember>) =>
+    api.patch<{ data: StaffMember }>(`/staff/${id}`, data),
   delete: (id: string) => api.delete(`/staff/${id}`),
 };
 
@@ -301,13 +363,20 @@ export interface SearchedDoctor {
 }
 
 export const staffLinkService = {
-  search: (q: string) => api.get<{ data: SearchedDoctor[] }>(`/staff/link/search?q=${encodeURIComponent(q)}`),
+  search: (q: string) =>
+    api.get<{ data: SearchedDoctor[] }>(
+      `/staff/link/search?q=${encodeURIComponent(q)}`
+    ),
   sendRequest: (data: { targetUserId: string; message?: string }) =>
     api.post<{ data: StaffLinkRequest }>("/staff/link/request", data),
-  sentRequests: () => api.get<{ data: StaffLinkRequest[] }>("/staff/link/requests/sent"),
-  incomingRequests: () => api.get<{ data: StaffLinkRequest[] }>("/staff/link/requests/incoming"),
-  accept: (id: string) => api.post<{ message: string }>(`/staff/link/requests/${id}/accept`, {}),
-  reject: (id: string) => api.post<{ message: string }>(`/staff/link/requests/${id}/reject`, {}),
+  sentRequests: () =>
+    api.get<{ data: StaffLinkRequest[] }>("/staff/link/requests/sent"),
+  incomingRequests: () =>
+    api.get<{ data: StaffLinkRequest[] }>("/staff/link/requests/incoming"),
+  accept: (id: string) =>
+    api.post<{ message: string }>(`/staff/link/requests/${id}/accept`, {}),
+  reject: (id: string) =>
+    api.post<{ message: string }>(`/staff/link/requests/${id}/reject`, {}),
   cancel: (id: string) => api.delete(`/staff/link/requests/${id}/cancel`),
   unlink: (staffId: string) => api.delete(`/staff/link/${staffId}/unlink`),
   myLink: () => api.get<{ data: StaffMember | null }>("/staff/link/my-link"),
@@ -333,15 +402,22 @@ export interface Product {
 }
 
 export const productService = {
-  myProducts: (params?: string) => api.get<PaginatedResponse<Product>>(`/products/my${params ? `?${params}` : ""}`),
-  create: (data: Partial<Product>) => api.post<{ data: Product }>("/products", data),
-  update: (id: string, data: Partial<Product>) => api.patch<{ data: Product }>(`/products/${id}`, data),
+  myProducts: (params?: string) =>
+    api.get<PaginatedResponse<Product>>(
+      `/products/my${params ? `?${params}` : ""}`
+    ),
+  create: (data: Partial<Product>) =>
+    api.post<{ data: Product }>("/products", data),
+  update: (id: string, data: Partial<Product>) =>
+    api.patch<{ data: Product }>(`/products/${id}`, data),
   delete: (id: string) => api.delete(`/products/${id}`),
   publicForBusiness: (businessId: string, params?: string) =>
-    api.get<PaginatedResponse<Product>>(`/products/public/${businessId}${params ? `?${params}` : ""}`),
+    api.get<PaginatedResponse<Product>>(
+      `/products/public/${businessId}${params ? `?${params}` : ""}`
+    ),
 };
 
-// ── Product Categories (per-category dropdown options) ──
+// ── Product Categories ──
 export interface ProductCategoryItem {
   id: string;
   name: string;
@@ -350,10 +426,12 @@ export interface ProductCategoryItem {
 
 export const productCategoryService = {
   byCategory: (categoryId: string) =>
-    api.get<{ data: ProductCategoryItem[] }>(`/product-categories/by-category/${categoryId}`),
+    api.get<{ data: ProductCategoryItem[] }>(
+      `/product-categories/by-category/${categoryId}`
+    ),
 };
 
-// ── Deals ("Deals In") ──
+// ── Deals ──
 export interface Deal {
   id: string;
   businessId: string;
@@ -368,9 +446,11 @@ export interface Deal {
 export const dealService = {
   my: () => api.get<{ data: Deal[] }>("/deals/my"),
   create: (data: Partial<Deal>) => api.post<{ data: Deal }>("/deals", data),
-  update: (id: string, data: Partial<Deal>) => api.patch<{ data: Deal }>(`/deals/${id}`, data),
+  update: (id: string, data: Partial<Deal>) =>
+    api.patch<{ data: Deal }>(`/deals/${id}`, data),
   delete: (id: string) => api.delete(`/deals/${id}`),
-  forBusiness: (businessId: string) => api.get<{ data: Deal[] }>(`/deals/business/${businessId}`),
+  forBusiness: (businessId: string) =>
+    api.get<{ data: Deal[] }>(`/deals/business/${businessId}`),
 };
 
 // ── Business Services ──
@@ -388,12 +468,15 @@ export interface BusinessServiceItem {
 
 export const businessServiceService = {
   my: () => api.get<{ data: BusinessServiceItem[] }>("/business-services/my"),
-  create: (data: Partial<BusinessServiceItem>) => api.post<{ data: BusinessServiceItem }>("/business-services", data),
+  create: (data: Partial<BusinessServiceItem>) =>
+    api.post<{ data: BusinessServiceItem }>("/business-services", data),
   update: (id: string, data: Partial<BusinessServiceItem>) =>
     api.patch<{ data: BusinessServiceItem }>(`/business-services/${id}`, data),
   delete: (id: string) => api.delete(`/business-services/${id}`),
   forBusiness: (businessId: string) =>
-    api.get<{ data: BusinessServiceItem[] }>(`/business-services/business/${businessId}`),
+    api.get<{ data: BusinessServiceItem[] }>(
+      `/business-services/business/${businessId}`
+    ),
 };
 
 // ── Orders/Inquiries ──
@@ -414,14 +497,27 @@ export interface OrderInquiry {
 }
 
 export const orderService = {
-  sent: (params?: string) => api.get<PaginatedResponse<OrderInquiry>>(`/orders/sent${params ? `?${params}` : ""}`),
-  received: (params?: string) => api.get<PaginatedResponse<OrderInquiry>>(`/orders/received${params ? `?${params}` : ""}`),
-  create: (data: { supplierId: string; productId?: string; productName: string; quantity: number; unit?: string; notes?: string }) =>
-    api.post<{ data: OrderInquiry }>("/orders", data),
-  updateStatus: (id: string, status: string) => api.patch(`/orders/${id}/status`, { status }),
+  sent: (params?: string) =>
+    api.get<PaginatedResponse<OrderInquiry>>(
+      `/orders/sent${params ? `?${params}` : ""}`
+    ),
+  received: (params?: string) =>
+    api.get<PaginatedResponse<OrderInquiry>>(
+      `/orders/received${params ? `?${params}` : ""}`
+    ),
+  create: (data: {
+    supplierId: string;
+    productId?: string;
+    productName: string;
+    quantity: number;
+    unit?: string;
+    notes?: string;
+  }) => api.post<{ data: OrderInquiry }>("/orders", data),
+  updateStatus: (id: string, status: string) =>
+    api.patch(`/orders/${id}/status`, { status }),
 };
 
-// ── Suppliers (Supply-Chain Browsing) ──
+// ── Suppliers ──
 export interface SupplierCard {
   id: string;
   businessId: string;
@@ -438,8 +534,18 @@ export interface SupplierCard {
 export interface SupplierDetail extends SupplierCard {
   about: string | null;
   whatsapp: string | null;
-  deals: { id: string; title: string; description: string | null; image: string | null }[];
-  services: { id: string; name: string; description: string | null; image: string | null }[];
+  deals: {
+    id: string;
+    title: string;
+    description: string | null;
+    image: string | null;
+  }[];
+  services: {
+    id: string;
+    name: string;
+    description: string | null;
+    image: string | null;
+  }[];
 }
 
 export interface SupplierProduct {
@@ -451,14 +557,30 @@ export interface SupplierProduct {
   packSize: string | null;
   moq: number | null;
   image: string | null;
-  business: { id: string; name: string; slug: string; phone1: string | null; image: string | null };
+  business: {
+    id: string;
+    name: string;
+    slug: string;
+    phone1: string | null;
+    image: string | null;
+  };
 }
 
 export const supplierService = {
-  list: (params?: string) => api.get<PaginatedResponse<SupplierCard>>(`/suppliers${params ? `?${params}` : ""}`),
-  detail: (id: string) => api.get<{ data: SupplierDetail }>(`/suppliers/${id}`),
-  products: (id: string, params?: string) => api.get<PaginatedResponse<SupplierProduct>>(`/suppliers/${id}/products${params ? `?${params}` : ""}`),
-  searchProducts: (params: string) => api.get<PaginatedResponse<SupplierProduct>>(`/suppliers/products/search?${params}`),
+  list: (params?: string) =>
+    api.get<PaginatedResponse<SupplierCard>>(
+      `/suppliers${params ? `?${params}` : ""}`
+    ),
+  detail: (id: string) =>
+    api.get<{ data: SupplierDetail }>(`/suppliers/${id}`),
+  products: (id: string, params?: string) =>
+    api.get<PaginatedResponse<SupplierProduct>>(
+      `/suppliers/${id}/products${params ? `?${params}` : ""}`
+    ),
+  searchProducts: (params: string) =>
+    api.get<PaginatedResponse<SupplierProduct>>(
+      `/suppliers/products/search?${params}`
+    ),
 };
 
 // ── Reviews ──
@@ -476,10 +598,11 @@ export interface Review {
 
 export const reviewService = {
   forBusiness: (businessId: string, params?: string) =>
-    api.get<PaginatedResponse<Review>>(`/reviews/business/${businessId}${params ? `?${params}` : ""}`),
+    api.get<PaginatedResponse<Review>>(
+      `/reviews/business/${businessId}${params ? `?${params}` : ""}`
+    ),
   create: (data: { businessId: string; rating: number; comment?: string }) =>
     api.post<{ data: Review }>("/reviews", data),
-  // Admin
   pending: () => api.get<{ data: Review[] }>("/reviews/admin/pending"),
   moderate: (id: string, data: { action: "approve" | "delete" }) =>
     api.patch(`/reviews/admin/${id}`, data),
@@ -499,12 +622,18 @@ export interface Notification {
 
 export const notificationService = {
   list: (params?: string) =>
-    api.get<PaginatedResponse<Notification> & { unreadCount: number }>(`/notifications${params ? `?${params}` : ""}`),
+    api.get<PaginatedResponse<Notification> & { unreadCount: number }>(
+      `/notifications${params ? `?${params}` : ""}`
+    ),
   markRead: (id: string) => api.patch(`/notifications/${id}/read`, {}),
   markAllRead: () => api.patch("/notifications/read-all", {}),
   delete: (id: string) => api.delete(`/notifications/${id}`),
-  broadcast: (data: { title: string; message: string; link?: string; targetRole?: string }) =>
-    api.post("/notifications/broadcast", data),
+  broadcast: (data: {
+    title: string;
+    message: string;
+    link?: string;
+    targetRole?: string;
+  }) => api.post("/notifications/broadcast", data),
 };
 
 // ── Content ──
@@ -533,14 +662,25 @@ export interface BlogItem {
 }
 
 export const contentService = {
-  news: (params?: string) => api.get<PaginatedResponse<NewsItem>>(`/content/news${params ? `?${params}` : ""}`),
-  blogs: (params?: string) => api.get<PaginatedResponse<BlogItem>>(`/content/blogs${params ? `?${params}` : ""}`),
-  blogBySlug: (slug: string) => api.get<{ data: BlogItem }>(`/content/blogs/${slug}`),
-  createNews: (data: Partial<NewsItem>) => api.post<{ data: NewsItem }>("/content/news", data),
-  updateNews: (id: string, data: Partial<NewsItem>) => api.patch<{ data: NewsItem }>(`/content/news/${id}`, data),
+  news: (params?: string) =>
+    api.get<PaginatedResponse<NewsItem>>(
+      `/content/news${params ? `?${params}` : ""}`
+    ),
+  blogs: (params?: string) =>
+    api.get<PaginatedResponse<BlogItem>>(
+      `/content/blogs${params ? `?${params}` : ""}`
+    ),
+  blogBySlug: (slug: string) =>
+    api.get<{ data: BlogItem }>(`/content/blogs/${slug}`),
+  createNews: (data: Partial<NewsItem>) =>
+    api.post<{ data: NewsItem }>("/content/news", data),
+  updateNews: (id: string, data: Partial<NewsItem>) =>
+    api.patch<{ data: NewsItem }>(`/content/news/${id}`, data),
   deleteNews: (id: string) => api.delete(`/content/news/${id}`),
-  createBlog: (data: Partial<BlogItem>) => api.post<{ data: BlogItem }>("/content/blogs", data),
-  updateBlog: (id: string, data: Partial<BlogItem>) => api.patch<{ data: BlogItem }>(`/content/blogs/${id}`, data),
+  createBlog: (data: Partial<BlogItem>) =>
+    api.post<{ data: BlogItem }>("/content/blogs", data),
+  updateBlog: (id: string, data: Partial<BlogItem>) =>
+    api.patch<{ data: BlogItem }>(`/content/blogs/${id}`, data),
   deleteBlog: (id: string) => api.delete(`/content/blogs/${id}`),
 };
 
@@ -559,9 +699,11 @@ export interface Ad {
 }
 
 export const adService = {
-  list: (params?: string) => api.get<PaginatedResponse<Ad>>(`/ads${params ? `?${params}` : ""}`),
+  list: (params?: string) =>
+    api.get<PaginatedResponse<Ad>>(`/ads${params ? `?${params}` : ""}`),
   create: (data: Partial<Ad>) => api.post<{ data: Ad }>("/ads", data),
-  update: (id: string, data: Partial<Ad>) => api.patch<{ data: Ad }>(`/ads/${id}`, data),
+  update: (id: string, data: Partial<Ad>) =>
+    api.patch<{ data: Ad }>(`/ads/${id}`, data),
   delete: (id: string) => api.delete(`/ads/${id}`),
 };
 
@@ -584,14 +726,25 @@ export interface Camp {
 }
 
 export const campService = {
-  list: (params?: string) => api.get<PaginatedResponse<Camp>>(`/camps${params ? `?${params}` : ""}`),
+  list: (params?: string) =>
+    api.get<PaginatedResponse<Camp>>(`/camps${params ? `?${params}` : ""}`),
   getBySlug: (slug: string) => api.get<{ data: Camp }>(`/camps/${slug}`),
   create: (data: Partial<Camp>) => api.post<{ data: Camp }>("/camps", data),
-  update: (id: string, data: Partial<Camp>) => api.patch<{ data: Camp }>(`/camps/${id}`, data),
+  update: (id: string, data: Partial<Camp>) =>
+    api.patch<{ data: Camp }>(`/camps/${id}`, data),
   delete: (id: string) => api.delete(`/camps/${id}`),
-  register: (id: string, data: { name: string; phone: string; whatsapp?: string; age?: number; gender?: string }) =>
-    api.post(`/camps/${id}/register`, data),
-  registrations: (id: string) => api.get<{ data: unknown[] }>(`/camps/${id}/registrations`),
+  register: (
+    id: string,
+    data: {
+      name: string;
+      phone: string;
+      whatsapp?: string;
+      age?: number;
+      gender?: string;
+    }
+  ) => api.post(`/camps/${id}/register`, data),
+  registrations: (id: string) =>
+    api.get<{ data: unknown[] }>(`/camps/${id}/registrations`),
 };
 
 // ── Jobs ──
@@ -611,19 +764,32 @@ export interface Job {
   lastDate: string | null;
   isActive: boolean;
   createdAt: string;
-  business?: { id: string; name: string; slug: string; image: string | null; area?: { name: string; city: { name: string } } };
+  business?: {
+    id: string;
+    name: string;
+    slug: string;
+    image: string | null;
+    area?: { name: string; city: { name: string } };
+  };
   jobCategory?: { id: string; name: string };
 }
 
 export const jobService = {
-  categories: () => api.get<{ data: { id: string; name: string; slug: string; _count: { jobs: number } }[] }>("/jobs/categories"),
-  list: (params?: string) => api.get<PaginatedResponse<Job>>(`/jobs${params ? `?${params}` : ""}`),
+  categories: () =>
+    api.get<{
+      data: { id: string; name: string; slug: string; _count: { jobs: number } }[];
+    }>("/jobs/categories"),
+  list: (params?: string) =>
+    api.get<PaginatedResponse<Job>>(`/jobs${params ? `?${params}` : ""}`),
   getBySlug: (slug: string) => api.get<{ data: Job }>(`/jobs/${slug}`),
   create: (data: Partial<Job>) => api.post<{ data: Job }>("/jobs", data),
-  update: (id: string, data: Partial<Job>) => api.patch<{ data: Job }>(`/jobs/${id}`, data),
+  update: (id: string, data: Partial<Job>) =>
+    api.patch<{ data: Job }>(`/jobs/${id}`, data),
   delete: (id: string) => api.delete(`/jobs/${id}`),
-  apply: (id: string, data: Record<string, unknown>) => api.post(`/jobs/${id}/apply`, data),
-  applications: (jobId: string) => api.get<{ data: unknown[] }>(`/jobs/${jobId}/applications`),
+  apply: (id: string, data: Record<string, unknown>) =>
+    api.post(`/jobs/${id}/apply`, data),
+  applications: (jobId: string) =>
+    api.get<{ data: unknown[] }>(`/jobs/${jobId}/applications`),
 };
 
 // ── Blood ──
@@ -652,11 +818,23 @@ export interface BloodRequest {
 }
 
 export const bloodService = {
-  registerDonor: (data: { bloodGroup: string; stateId?: string; districtId?: string; cityId?: string; address?: string }) =>
-    api.post("/blood/donors/register", data),
-  searchDonors: (params?: string) => api.get<PaginatedResponse<BloodDonor>>(`/blood/donors${params ? `?${params}` : ""}`),
-  createRequest: (data: Record<string, unknown>) => api.post("/blood/requests", data),
-  listRequests: (params?: string) => api.get<PaginatedResponse<BloodRequest>>(`/blood/requests${params ? `?${params}` : ""}`),
+  registerDonor: (data: {
+    bloodGroup: string;
+    stateId?: string;
+    districtId?: string;
+    cityId?: string;
+    address?: string;
+  }) => api.post("/blood/donors/register", data),
+  searchDonors: (params?: string) =>
+    api.get<PaginatedResponse<BloodDonor>>(
+      `/blood/donors${params ? `?${params}` : ""}`
+    ),
+  createRequest: (data: Record<string, unknown>) =>
+    api.post("/blood/requests", data),
+  listRequests: (params?: string) =>
+    api.get<PaginatedResponse<BloodRequest>>(
+      `/blood/requests${params ? `?${params}` : ""}`
+    ),
 };
 
 // ── Admin ──
@@ -674,25 +852,41 @@ export interface AdminUser {
 
 export const adminService = {
   dashboard: () => api.get<{ data: Record<string, number> }>("/admin/stats"),
-  users: (params?: string) => api.get<PaginatedResponse<AdminUser>>(`/admin/users${params ? `?${params}` : ""}`),
+  users: (params?: string) =>
+    api.get<PaginatedResponse<AdminUser>>(
+      `/admin/users${params ? `?${params}` : ""}`
+    ),
   toggleUser: (id: string) => api.patch(`/admin/users/${id}/toggle`, {}),
-  businesses: (params?: string) => api.get<PaginatedResponse<BusinessProfile>>(`/admin/businesses${params ? `?${params}` : ""}`),
-  pendingBusinesses: () => api.get<{ data: BusinessProfile[] }>("/admin/businesses/pending"),
+  businesses: (params?: string) =>
+    api.get<PaginatedResponse<BusinessProfile>>(
+      `/admin/businesses${params ? `?${params}` : ""}`
+    ),
+  pendingBusinesses: () =>
+    api.get<{ data: BusinessProfile[] }>("/admin/businesses/pending"),
   updateBusinessStatus: (id: string, status: string) =>
     api.patch(`/businesses/${id}/status`, { status }),
   updateBusiness: (id: string, data: Record<string, unknown>) =>
     api.patch(`/businesses/${id}/admin`, data),
-  createAdmin: (data: { name: string; phone: string; email?: string; password: string }) =>
-    api.post("/admin/users/admin", data),
-  // License admin
+  createAdmin: (data: {
+    name: string;
+    phone: string;
+    email?: string;
+    password: string;
+  }) => api.post("/admin/users/admin", data),
   allLicenses: (params?: string) => licenseService.listAll(params),
-  verifyLicense: (id: string, data: { status: string; rejectionNote?: string }) => licenseService.verify(id, data),
-  // Review admin
+  verifyLicense: (
+    id: string,
+    data: { status: string; rejectionNote?: string }
+  ) => licenseService.verify(id, data),
   pendingReviews: () => reviewService.pending(),
-  moderateReview: (id: string, data: { action: "approve" | "delete" }) => reviewService.moderate(id, data),
-  // Contact
-  contacts: (params?: string) => api.get<PaginatedResponse<unknown>>(`/inquiries/contact${params ? `?${params}` : ""}`),
-  markContactRead: (id: string) => api.patch(`/inquiries/contact/${id}/read`, {}),
+  moderateReview: (id: string, data: { action: "approve" | "delete" }) =>
+    reviewService.moderate(id, data),
+  contacts: (params?: string) =>
+    api.get<PaginatedResponse<unknown>>(
+      `/inquiries/contact${params ? `?${params}` : ""}`
+    ),
+  markContactRead: (id: string) =>
+    api.patch(`/inquiries/contact/${id}/read`, {}),
 };
 
 // ── Gallery ──
@@ -707,7 +901,10 @@ export interface GalleryItem {
 }
 
 export const galleryService = {
-  list: (params?: string) => api.get<PaginatedResponse<GalleryItem>>(`/content/gallery${params ? `?${params}` : ""}`),
+  list: (params?: string) =>
+    api.get<PaginatedResponse<GalleryItem>>(
+      `/content/gallery${params ? `?${params}` : ""}`
+    ),
   create: (data: { type: string; url: string; caption?: string; cityId?: string }) =>
     api.post<{ data: GalleryItem }>("/content/gallery", data),
   delete: (id: string) => api.delete(`/content/gallery/${id}`),
@@ -729,21 +926,40 @@ export interface Coupon {
 }
 
 export const couponService = {
-  list: (params?: string) => api.get<PaginatedResponse<Coupon>>(`/coupons${params ? `?${params}` : ""}`),
+  list: (params?: string) =>
+    api.get<PaginatedResponse<Coupon>>(`/coupons${params ? `?${params}` : ""}`),
   myCoupons: () => api.get<{ data: Coupon[] }>("/coupons/my"),
   getBySlug: (slug: string) => api.get<{ data: Coupon }>(`/coupons/${slug}`),
-  create: (data: { code: string; name: string; description?: string; validUntil: string }) =>
-    api.post<{ data: Coupon }>("/coupons", data),
+  create: (data: {
+    code: string;
+    name: string;
+    description?: string;
+    validUntil: string;
+  }) => api.post<{ data: Coupon }>("/coupons", data),
   register: (id: string, data: { name: string; phone: string }) =>
     api.post(`/coupons/${id}/register`, data),
-  registrations: (id: string) => api.get<{ data: unknown[] }>(`/coupons/${id}/registrations`),
-  update: (id: string, data: { code?: string; name?: string; description?: string; validUntil?: string }) =>
-    api.patch<{ data: Coupon }>(`/coupons/${id}`, data),
+  registrations: (id: string) =>
+    api.get<{ data: unknown[] }>(`/coupons/${id}/registrations`),
+  update: (
+    id: string,
+    data: {
+      code?: string;
+      name?: string;
+      description?: string;
+      validUntil?: string;
+    }
+  ) => api.patch<{ data: Coupon }>(`/coupons/${id}`, data),
   delete: (id: string) => api.delete(`/coupons/${id}`),
 };
 
 // ── Contact ──
 export const contactService = {
-  submit: (data: { name: string; phone: string; email?: string; city?: string; subject?: string; message: string }) =>
-    api.post("/inquiries/contact", data),
+  submit: (data: {
+    name: string;
+    phone: string;
+    email?: string;
+    city?: string;
+    subject?: string;
+    message: string;
+  }) => api.post("/inquiries/contact", data),
 };
