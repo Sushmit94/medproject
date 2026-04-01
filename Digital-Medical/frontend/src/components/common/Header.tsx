@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Search, MapPin, ChevronDown, Menu, X, Phone,
@@ -26,7 +26,8 @@ const navLinks = [
   { label: "News", to: "/news", icon: Newspaper },
 ];
 
-const HERO_SEARCH_THRESHOLD = 150;
+// How many px from top the hero search bar is. Adjust if your layout differs.
+const HERO_SEARCH_THRESHOLD = 200;
 
 export default function Header() {
   const [query, setQuery] = useState("");
@@ -34,7 +35,8 @@ export default function Header() {
   const [cityOpen, setCityOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [showNavSearch, setShowNavSearch] = useState(false);
+  // 0 = search fully in hero, 1 = search fully in navbar
+  const [morphProgress, setMorphProgress] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, isAdmin, isBusiness } = useAuth();
@@ -43,7 +45,12 @@ export default function Header() {
     const onScroll = () => {
       const y = window.scrollY;
       setScrolled(y > 10);
-      setShowNavSearch(y > HERO_SEARCH_THRESHOLD);
+
+      // Progress goes from 0→1 over a 60px scroll window around the threshold
+      const TRANSITION_RANGE = 60;
+      const start = HERO_SEARCH_THRESHOLD - 30;
+      const progress = Math.min(1, Math.max(0, (y - start) / TRANSITION_RANGE));
+      setMorphProgress(progress);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -58,6 +65,10 @@ export default function Header() {
       setQuery("");
     }
   };
+
+  // Derived state
+  const showNavSearch = morphProgress > 0;
+  const isFullyMorphed = morphProgress === 1;
 
   return (
     <>
@@ -92,6 +103,7 @@ export default function Header() {
       >
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex items-center gap-5 h-[64px]">
+
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2 shrink-0 group">
               <img
@@ -106,16 +118,24 @@ export default function Header() {
               />
             </Link>
 
-            {/* Scroll-in group */}
+            {/*
+              ── MORPHING SEARCH BAR ────────────────────────────────────────
+              This is the key element. It uses inline styles driven by
+              morphProgress (0→1) to animate from invisible/offset to fully
+              visible in the navbar. The cubic-bezier easing is applied via
+              will-change + transition only when NOT scrolling (on mount/cleanup).
+              During active scroll we set values directly for responsiveness.
+            */}
             <div
-              className={`
-                hidden md:flex items-center gap-2
-                transition-all duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] flex-1 min-w-0 origin-left
-                ${showNavSearch
-                  ? "opacity-100 translate-y-0 scale-100 pointer-events-auto max-w-2xl"
-                  : "opacity-0 translate-y-12 scale-90 pointer-events-none max-w-0 overflow-hidden"
-                }
-              `}
+              className="hidden md:flex items-center gap-2 flex-1 min-w-0"
+              style={{
+                opacity: morphProgress,
+                transform: `translateY(${(1 - morphProgress) * 16}px) scale(${0.92 + morphProgress * 0.08})`,
+                pointerEvents: isFullyMorphed ? "auto" : morphProgress > 0.5 ? "auto" : "none",
+                transition: "opacity 0.15s ease, transform 0.15s ease",
+                maxWidth: showNavSearch ? "700px" : "0px",
+                overflow: "hidden",
+              }}
             >
               {/* City selector */}
               <div className="relative shrink-0">
@@ -136,8 +156,8 @@ export default function Header() {
                           key={c}
                           onClick={() => { setCity(c); setCityOpen(false); }}
                           className={`w-full text-left px-3 py-2.5 text-sm rounded-lg transition-colors ${city === c
-                            ? "bg-primary text-white font-medium"
-                            : "text-text-secondary hover:bg-surface-tertiary"
+                              ? "bg-primary text-white font-medium"
+                              : "text-text-secondary hover:bg-surface-tertiary"
                             }`}
                         >
                           {c}
@@ -149,7 +169,10 @@ export default function Header() {
               </div>
 
               {/* Search bar */}
-              <form onSubmit={handleSearch} className="flex flex-1 bg-surface-tertiary rounded-xl overflow-hidden border border-transparent focus-within:border-primary/30 focus-within:bg-white focus-within:shadow-md focus-within:shadow-primary/5 transition-all">
+              <form
+                onSubmit={handleSearch}
+                className="flex flex-1 bg-surface-tertiary rounded-xl overflow-hidden border border-transparent focus-within:border-primary/30 focus-within:bg-white focus-within:shadow-md focus-within:shadow-primary/5 transition-all"
+              >
                 <div className="relative flex-1">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
                   <input
@@ -178,6 +201,7 @@ export default function Header() {
                 <Building2 size={14} />
                 List Business
               </Link>
+
               {user ? (
                 <>
                   <Link
@@ -188,7 +212,10 @@ export default function Header() {
                     {user.name.split(" ")[0]}
                   </Link>
                   <button
-                    onClick={() => { logout(); navigate(isAdmin ? "/super-admin/login" : isBusiness ? "/business/login" : "/"); }}
+                    onClick={() => {
+                      logout();
+                      navigate(isAdmin ? "/super-admin/login" : isBusiness ? "/business/login" : "/");
+                    }}
                     className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-all"
                   >
                     <LogOut size={15} />
@@ -212,6 +239,7 @@ export default function Header() {
                   </Link>
                 </>
               )}
+
               <button
                 onClick={() => setMobileOpen(!mobileOpen)}
                 className="md:hidden p-2.5 text-text-secondary hover:text-text-primary rounded-lg hover:bg-surface-tertiary transition-colors"
@@ -235,8 +263,8 @@ export default function Header() {
                     key={link.to}
                     to={link.to}
                     className={`flex items-center gap-1.5 px-4 py-3 text-[13px] font-medium whitespace-nowrap border-b-2 transition-all ${isActive
-                      ? "border-primary text-primary"
-                      : "border-transparent text-text-secondary hover:text-primary hover:border-primary/30"
+                        ? "border-primary text-primary"
+                        : "border-transparent text-text-secondary hover:text-primary hover:border-primary/30"
                       }`}
                   >
                     <Icon size={14} />
@@ -282,8 +310,8 @@ export default function Header() {
                       key={link.to}
                       to={link.to}
                       className={`flex items-center gap-2.5 px-3.5 py-3 text-sm rounded-xl transition-all ${isActive
-                        ? "bg-primary-light text-primary font-medium"
-                        : "text-text-secondary hover:bg-surface-tertiary"
+                          ? "bg-primary-light text-primary font-medium"
+                          : "text-text-secondary hover:bg-surface-tertiary"
                         }`}
                     >
                       <Icon size={16} className={isActive ? "text-primary" : "text-text-tertiary"} />
@@ -305,7 +333,11 @@ export default function Header() {
               <div className="flex gap-2 pt-1">
                 {user ? (
                   <button
-                    onClick={() => { logout(); navigate(isAdmin ? "/super-admin/login" : isBusiness ? "/business/login" : "/"); setMobileOpen(false); }}
+                    onClick={() => {
+                      logout();
+                      navigate(isAdmin ? "/super-admin/login" : isBusiness ? "/business/login" : "/");
+                      setMobileOpen(false);
+                    }}
                     className="flex-1 py-3 text-center text-sm font-medium border border-red-200 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
                   >
                     Sign Out
