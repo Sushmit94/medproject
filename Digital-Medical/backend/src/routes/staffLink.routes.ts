@@ -78,7 +78,8 @@ router.get("/search", requireAuth, async (req: Request, res: Response) => {
       },
       take: 20,
     });
-
+    console.log("🔍 Profiles found:", profiles.length);
+    console.log("🔍 Allowed slugs:", allowedSlugs);
     // Exclude profiles that are already linked (have a StaffMember with linkedUserId pointing to them)
     const alreadyLinkedUserIds = new Set<string>();
     const linkedStaff = await prisma.staffMember.findMany({
