@@ -8,7 +8,12 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isProfessional } from "@/utils/categoryHelpers";
-import { staffLinkService, type StaffLinkRequest, type StaffMember } from "@/lib/services";
+import {
+  staffLinkService,
+  notificationService, // Added to imports
+  type StaffLinkRequest,
+  type StaffMember
+} from "@/lib/services";
 import ProfilePage from "./business/ProfilePage";
 import LicensesPage from "./business/LicensesPage";
 import StaffPage from "./business/StaffPage";
@@ -24,6 +29,46 @@ import SuppliersPage from "./business/SuppliersPage";
 import SupplierDetailPage from "./business/SupplierDetailPage";
 import LinkedBusinessPage from "./business/LinkedBusinessPage";
 
+/* ── Notification Components ── */
+function useUnreadCount() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    // 1. Function to fetch the data
+    const fetchCount = () => {
+      notificationService.list("limit=1")
+        .then((res) => {
+          setCount(res.unreadCount ?? 0);
+        })
+        .catch((err) => {
+          console.error("Failed to fetch notification count:", err);
+        });
+    };
+
+    // 2. Initial fetch on mount
+    fetchCount();
+
+    // 3. Set up an interval to fetch every 30 seconds
+    const interval = setInterval(fetchCount, 1000);
+
+    // 4. Cleanup: clear the interval when the component unmounts
+    return () => clearInterval(interval);
+  }, []);
+
+  return count;
+}
+
+
+function UnreadBadge() {
+  const count = useUnreadCount();
+  if (count === 0) return null;
+  return (
+    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const location = useLocation();
   const { logout, business } = useAuth();
@@ -33,29 +78,29 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 
   const links = isProf
     ? [
-        { to: "/business", icon: LayoutDashboard, label: "Dashboard", exact: true },
-        { to: "/business/profile", icon: User, label: "Personal Profile" },
-        { to: "/business/linked", icon: Link2, label: "Linked Business" },
-        { to: "/business/notifications", icon: Bell, label: "Notifications" },
-        { to: "/business/settings", icon: Settings, label: "Settings" },
-      ]
+      { to: "/business", icon: LayoutDashboard, label: "Dashboard", exact: true },
+      { to: "/business/profile", icon: User, label: "Personal Profile" },
+      { to: "/business/linked", icon: Link2, label: "Linked Business" },
+      { to: "/business/notifications", icon: Bell, label: "Notifications" },
+      { to: "/business/settings", icon: Settings, label: "Settings" },
+    ]
     : [
-        { to: "/business", icon: LayoutDashboard, label: "Dashboard", exact: true },
-        { to: "/business/profile", icon: Building2, label: "Business Profile" },
-        { to: "/business/licenses", icon: FileText, label: "Licenses" },
-        { to: "/business/staff", icon: Users, label: "Staff" },
-        ...(business?.category?.hasDealsIn ? [{ to: "/business/deals", icon: Handshake, label: "Deals In" }] : []),
-        ...(business?.category?.hasProducts ? [{ to: "/business/products", icon: Package, label: "Products" }] : []),
-        ...(business?.category?.hasServices ? [{ to: "/business/services", icon: Stethoscope, label: "Services" }] : []),
-        ...(business?.supplyChainRole === "RETAILER" || business?.supplyChainRole === "WHOLESALER" ? [{ to: "/business/suppliers", icon: Truck, label: "Suppliers" }] : []),
-        { to: "/business/orders", icon: ShoppingCart, label: "Inquiries" },
-        { to: "/business/coupons", icon: Ticket, label: "Coupons" },
-        { to: "/business/camps", icon: Tent, label: "Camps" },
-        { to: "/business/jobs", icon: Briefcase, label: "Jobs" },
-        { to: "/business/reviews", icon: Star, label: "Reviews" },
-        { to: "/business/notifications", icon: Bell, label: "Notifications" },
-        { to: "/business/settings", icon: Settings, label: "Settings" },
-      ];
+      { to: "/business", icon: LayoutDashboard, label: "Dashboard", exact: true },
+      { to: "/business/profile", icon: Building2, label: "Business Profile" },
+      { to: "/business/licenses", icon: FileText, label: "Licenses" },
+      { to: "/business/staff", icon: Users, label: "Staff" },
+      ...(business?.category?.hasDealsIn ? [{ to: "/business/deals", icon: Handshake, label: "Deals In" }] : []),
+      ...(business?.category?.hasProducts ? [{ to: "/business/products", icon: Package, label: "Products" }] : []),
+      ...(business?.category?.hasServices ? [{ to: "/business/services", icon: Stethoscope, label: "Services" }] : []),
+      ...(business?.supplyChainRole === "RETAILER" || business?.supplyChainRole === "WHOLESALER" ? [{ to: "/business/suppliers", icon: Truck, label: "Suppliers" }] : []),
+      { to: "/business/orders", icon: ShoppingCart, label: "Inquiries" },
+      { to: "/business/coupons", icon: Ticket, label: "Coupons" },
+      { to: "/business/camps", icon: Tent, label: "Camps" },
+      { to: "/business/jobs", icon: Briefcase, label: "Jobs" },
+      { to: "/business/reviews", icon: Star, label: "Reviews" },
+      { to: "/business/notifications", icon: Bell, label: "Notifications" },
+      { to: "/business/settings", icon: Settings, label: "Settings" },
+    ];
 
   const isActive = (to: string, exact?: boolean) =>
     exact ? location.pathname === to : location.pathname.startsWith(to);
@@ -145,7 +190,6 @@ function ProfessionalDashboardHome() {
     try {
       await staffLinkService.accept(id);
       setMessage({ type: "success", text: "Request accepted! You are now linked." });
-      // Reload data
       const [linkRes, reqRes] = await Promise.allSettled([
         staffLinkService.myLink(),
         staffLinkService.incomingRequests(),
@@ -184,15 +228,14 @@ function ProfessionalDashboardHome() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-text-primary">
           Welcome, {business?.name}
         </h1>
         <p className="text-sm text-text-secondary mt-1">
           {business?.category?.slug === "doctors" ? "Doctor" :
-           business?.category?.slug === "pharmacists" ? "Pharmacist" :
-           "Medical Representative"} Dashboard
+            business?.category?.slug === "pharmacists" ? "Pharmacist" :
+              "Medical Representative"} Dashboard
         </p>
       </div>
 
@@ -203,7 +246,6 @@ function ProfessionalDashboardHome() {
         </div>
       )}
 
-      {/* Linked Business Card */}
       <div className="bg-white rounded-xl border border-border-light p-6">
         <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
           <Link2 size={18} /> Linked Business
@@ -238,7 +280,6 @@ function ProfessionalDashboardHome() {
         )}
       </div>
 
-      {/* Pending Link Requests */}
       {pendingRequests.length > 0 && (
         <div className="bg-white rounded-xl border border-border-light p-6">
           <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
@@ -287,7 +328,7 @@ function ProfessionalDashboardHome() {
   );
 }
 
-/* ── Business Dashboard (original) ── */
+/* ── Business Dashboard Home ── */
 function BusinessDashboardHome() {
   const { business } = useAuth();
 
@@ -323,16 +364,6 @@ function BusinessDashboardHome() {
           <div>
             <p className="text-sm font-semibold text-green-800">Business Active</p>
             <p className="text-xs text-green-700 mt-0.5">Your listing is live. Complete your profile to get more visibility.</p>
-          </div>
-        </div>
-      )}
-
-      {business?.status === "REJECTED" && (
-        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
-          <AlertTriangle size={20} className="text-red-600 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-red-800">Business Rejected</p>
-            <p className="text-xs text-red-700 mt-0.5">Please contact support for more information.</p>
           </div>
         </div>
       )}
@@ -408,9 +439,12 @@ export default function BusinessDashboardLayout() {
           </button>
           <div />
           <div className="flex items-center gap-3">
-            <button className="relative p-2 text-text-secondary hover:bg-surface-tertiary rounded-lg">
+            {/* Updated Notification Link with UnreadBadge */}
+            <Link to="/business/notifications" className="relative p-2 text-text-secondary hover:bg-surface-tertiary rounded-lg inline-flex">
               <Bell size={18} />
-            </button>
+              <UnreadBadge />
+            </Link>
+
             {user && (
               <div className="flex items-center gap-2 pl-2 border-l border-border-light">
                 <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">

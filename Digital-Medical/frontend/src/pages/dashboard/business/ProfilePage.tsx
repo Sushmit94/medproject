@@ -33,6 +33,10 @@ export default function ProfilePage() {
 
   const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
 
+  // Logic for conditional rendering based on category
+  const slug = profile?.category?.slug ?? "";
+  const hideMapAndHours = slug === "doctors" || slug === "pharmacists";
+
   // Cascade location state
   const [states, setStates] = useState<LocationItem[]>([]);
   const [districts, setDistricts] = useState<LocationItem[]>([]);
@@ -72,12 +76,12 @@ export default function ProfilePage() {
           const district = data.area.city.district;
           const city = data.area.city;
           setLocIds({ stateId: state.id, districtId: district.id, cityId: city.id, areaId: data.area.id });
-          locationService.states().then(setStates).catch(() => {});
-          locationService.districts(state.id).then(setDistricts).catch(() => {});
-          locationService.cities(district.id).then(setCities).catch(() => {});
-          locationService.areas(city.id).then(setAreas).catch(() => {});
+          locationService.states().then(setStates).catch(() => { });
+          locationService.districts(state.id).then(setDistricts).catch(() => { });
+          locationService.cities(district.id).then(setCities).catch(() => { });
+          locationService.areas(city.id).then(setAreas).catch(() => { });
         } else {
-          locationService.states().then(setStates).catch(() => {});
+          locationService.states().then(setStates).catch(() => { });
         }
       })
       .catch(() => setMessage({ type: "error", text: "Failed to load profile" }))
@@ -277,7 +281,6 @@ export default function ProfilePage() {
           <h2 className="text-base font-semibold text-text-primary">Address</h2>
         </div>
         <div className="grid grid-cols-1 gap-4">
-          {/* Cascade location dropdowns */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1.5">State</label>
@@ -287,7 +290,7 @@ export default function ProfilePage() {
                   const id = e.target.value;
                   setLocIds({ stateId: id, districtId: "", cityId: "", areaId: "" });
                   setDistricts([]); setCities([]); setAreas([]);
-                  if (id) locationService.districts(id).then(setDistricts).catch(() => {});
+                  if (id) locationService.districts(id).then(setDistricts).catch(() => { });
                 }}
                 className="w-full px-3.5 py-2.5 border border-border-light rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none bg-white"
               >
@@ -304,7 +307,7 @@ export default function ProfilePage() {
                   const id = e.target.value;
                   setLocIds((p) => ({ ...p, districtId: id, cityId: "", areaId: "" }));
                   setCities([]); setAreas([]);
-                  if (id) locationService.cities(id).then(setCities).catch(() => {});
+                  if (id) locationService.cities(id).then(setCities).catch(() => { });
                 }}
                 className="w-full px-3.5 py-2.5 border border-border-light rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none bg-white disabled:bg-surface-tertiary disabled:text-text-tertiary"
               >
@@ -321,7 +324,7 @@ export default function ProfilePage() {
                   const id = e.target.value;
                   setLocIds((p) => ({ ...p, cityId: id, areaId: "" }));
                   setAreas([]);
-                  if (id) locationService.areas(id).then(setAreas).catch(() => {});
+                  if (id) locationService.areas(id).then(setAreas).catch(() => { });
                 }}
                 className="w-full px-3.5 py-2.5 border border-border-light rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none bg-white disabled:bg-surface-tertiary disabled:text-text-tertiary"
               >
@@ -346,14 +349,18 @@ export default function ProfilePage() {
             <label className="block text-sm font-medium text-text-secondary mb-1.5">Full Address</label>
             <textarea value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} placeholder="Street address, landmark, etc." className="w-full px-3.5 py-2.5 border border-border-light rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none resize-none" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">Pin Location on Map</label>
-            <LocationPicker
-              lat={coords.lat}
-              lng={coords.lng}
-              onChange={(lat, lng) => setCoords({ lat, lng })}
-            />
-          </div>
+
+          {/* Conditional Map Picker */}
+          {!hideMapAndHours && (
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1.5">Pin Location on Map</label>
+              <LocationPicker
+                lat={coords.lat}
+                lng={coords.lng}
+                onChange={(lat, lng) => setCoords({ lat, lng })}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -371,29 +378,31 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Timings */}
-      <div className="bg-white rounded-xl border border-border-light p-6">
-        <div className="flex items-center gap-2 mb-5">
-          <Clock size={18} className="text-primary" />
-          <h2 className="text-base font-semibold text-text-primary">Business Hours</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <p className="text-sm font-medium text-text-secondary mb-3">Morning Shift</p>
-            <div className="grid grid-cols-2 gap-3">
-              <InputField label="Opens" value={form.morningOpen} onChange={(v) => set("morningOpen", v)} placeholder="09:00" type="time" />
-              <InputField label="Closes" value={form.morningClose} onChange={(v) => set("morningClose", v)} placeholder="13:00" type="time" />
+      {/* Conditional Business Hours */}
+      {!hideMapAndHours && (
+        <div className="bg-white rounded-xl border border-border-light p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <Clock size={18} className="text-primary" />
+            <h2 className="text-base font-semibold text-text-primary">Business Hours</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <p className="text-sm font-medium text-text-secondary mb-3">Morning Shift</p>
+              <div className="grid grid-cols-2 gap-3">
+                <InputField label="Opens" value={form.morningOpen} onChange={(v) => set("morningOpen", v)} placeholder="09:00" type="time" />
+                <InputField label="Closes" value={form.morningClose} onChange={(v) => set("morningClose", v)} placeholder="13:00" type="time" />
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-text-secondary mb-3">Evening Shift</p>
+              <div className="grid grid-cols-2 gap-3">
+                <InputField label="Opens" value={form.eveningOpen} onChange={(v) => set("eveningOpen", v)} placeholder="16:00" type="time" />
+                <InputField label="Closes" value={form.eveningClose} onChange={(v) => set("eveningClose", v)} placeholder="21:00" type="time" />
+              </div>
             </div>
           </div>
-          <div>
-            <p className="text-sm font-medium text-text-secondary mb-3">Evening Shift</p>
-            <div className="grid grid-cols-2 gap-3">
-              <InputField label="Opens" value={form.eveningOpen} onChange={(v) => set("eveningOpen", v)} placeholder="16:00" type="time" />
-              <InputField label="Closes" value={form.eveningClose} onChange={(v) => set("eveningClose", v)} placeholder="21:00" type="time" />
-            </div>
-          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
