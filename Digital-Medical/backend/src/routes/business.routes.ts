@@ -248,7 +248,7 @@ router.patch(
 
       const allowedFields = [
         "about", "address", "phone1", "phone2", "phone3",
-        "whatsapp", "email", "website", "facebook", "instagram",
+        "whatsapp", "email", "website", "qualifications", "workExperience", "facebook", "instagram",
         "youtube", "googleMaps", "morningOpen", "morningClose",
         "eveningOpen", "eveningClose", "image", "coverImage", "designation", "areaId",
       ];

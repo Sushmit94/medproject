@@ -1,7 +1,22 @@
 import { useState, useEffect, useRef } from "react";
-import { Save, Building2, Phone, Globe, Clock, MapPin, Camera, Upload } from "lucide-react";
+import { Save, Building2, Phone, Globe, Clock, MapPin, Camera, Upload, GraduationCap, Briefcase, Plus, Trash2 } from "lucide-react";
 import { businessService, locationService, uploadService, type BusinessProfile, type LocationItem } from "@/lib/services";
 import LocationPicker from "@/components/common/LocationPicker";
+
+// ── Types ──
+interface Qualification {
+  degree: string;
+  institution: string;
+  year: string;
+}
+
+interface WorkExperience {
+  role: string;
+  place: string;
+  from: string;
+  to: string;
+  current: boolean;
+}
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
@@ -33,9 +48,14 @@ export default function ProfilePage() {
 
   const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
 
+  // Qualifications & Work Experience (only for doctors/pharmacists)
+  const [qualifications, setQualifications] = useState<Qualification[]>([]);
+  const [workExperience, setWorkExperience] = useState<WorkExperience[]>([]);
+
   // Logic for conditional rendering based on category
   const slug = profile?.category?.slug ?? "";
   const hideMapAndHours = slug === "doctors" || slug === "pharmacists";
+  const isProfessional = slug === "doctors" || slug === "pharmacists";
 
   // Cascade location state
   const [states, setStates] = useState<LocationItem[]>([]);
@@ -70,6 +90,15 @@ export default function ProfilePage() {
           lat: data.latitude ?? null,
           lng: data.longitude ?? null,
         });
+
+        // Load qualifications & work experience if they exist
+        if (data.qualifications) {
+          setQualifications(data.qualifications as Qualification[]);
+        }
+        if (data.workExperience) {
+          setWorkExperience(data.workExperience as WorkExperience[]);
+        }
+
         // Pre-populate cascade location from existing area
         if (data.area) {
           const state = data.area.city.district.state;
@@ -87,6 +116,32 @@ export default function ProfilePage() {
       .catch(() => setMessage({ type: "error", text: "Failed to load profile" }))
       .finally(() => setLoading(false));
   }, []);
+
+  // ── Qualification helpers ──
+  const addQualification = () =>
+    setQualifications((prev) => [...prev, { degree: "", institution: "", year: "" }]);
+
+  const updateQualification = (i: number, field: keyof Qualification, value: string) =>
+    setQualifications((prev) => prev.map((q, idx) => idx === i ? { ...q, [field]: value } : q));
+
+  const removeQualification = (i: number) =>
+    setQualifications((prev) => prev.filter((_, idx) => idx !== i));
+
+  // ── Work Experience helpers ──
+  const addWorkExperience = () =>
+    setWorkExperience((prev) => [...prev, { role: "", place: "", from: "", to: "", current: false }]);
+
+  const updateWorkExperience = (i: number, field: keyof WorkExperience, value: string | boolean) =>
+    setWorkExperience((prev) =>
+      prev.map((w, idx) =>
+        idx === i
+          ? { ...w, [field]: value, ...(field === "current" && value === true ? { to: "" } : {}) }
+          : w
+      )
+    );
+
+  const removeWorkExperience = (i: number) =>
+    setWorkExperience((prev) => prev.filter((_, idx) => idx !== i));
 
   const handleImageUpload = async (file: File, type: "image" | "cover") => {
     setUploading(type);
@@ -112,13 +167,22 @@ export default function ProfilePage() {
         coords.lat !== null && coords.lng !== null
           ? `https://www.google.com/maps?q=${coords.lat},${coords.lng}`
           : undefined;
-      const updated = await businessService.updateProfile({
+
+      const updatePayload: any = {
         ...form,
         ...(locIds.areaId ? { areaId: locIds.areaId } : {}),
         ...(coords.lat !== null && coords.lng !== null
           ? { latitude: coords.lat, longitude: coords.lng, googleMaps: googleMapsUrl }
           : {}),
-      });
+      };
+
+      // Only include qual/exp for professionals
+      if (isProfessional) {
+        updatePayload.qualifications = qualifications.filter((q) => q.degree.trim());
+        updatePayload.workExperience = workExperience.filter((w) => w.role.trim());
+      }
+
+      const updated = await businessService.updateProfile(updatePayload);
       setProfile(updated);
       setCoords({ lat: updated.latitude ?? null, lng: updated.longitude ?? null });
       setMessage({ type: "success", text: "Profile updated successfully" });
@@ -148,7 +212,9 @@ export default function ProfilePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Business Profile</h1>
+          <h1 className="text-2xl font-bold text-text-primary">
+            {isProfessional ? "Personal Profile" : "Business Profile"}
+          </h1>
           <p className="text-sm text-text-secondary mt-1">Manage your business information</p>
         </div>
         <button
@@ -169,7 +235,6 @@ export default function ProfilePage() {
 
       {/* Cover & Profile Images */}
       <div className="bg-white rounded-xl border border-border-light overflow-hidden">
-        {/* Cover Image */}
         <div className="relative h-40 bg-gradient-to-r from-primary/20 to-accent/20">
           {profile?.coverImage && (
             <img src={profile.coverImage} alt="Cover" className="w-full h-full object-cover" />
@@ -194,7 +259,6 @@ export default function ProfilePage() {
             }}
           />
         </div>
-        {/* Profile Image */}
         <div className="px-6 pb-5 -mt-10 flex items-end gap-4">
           <div className="relative">
             <div className="w-20 h-20 rounded-xl border-4 border-white bg-surface-tertiary overflow-hidden shadow-sm">
@@ -236,11 +300,15 @@ export default function ProfilePage() {
       <div className="bg-white rounded-xl border border-border-light p-6">
         <div className="flex items-center gap-2 mb-5">
           <Building2 size={18} className="text-primary" />
-          <h2 className="text-base font-semibold text-text-primary">Business Information</h2>
+          <h2 className="text-base font-semibold text-text-primary">
+            {isProfessional ? "Personal Information" : "Business Information"}
+          </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">Business Name</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">
+              {isProfessional ? "Full Name" : "Business Name"}
+            </label>
             <input value={profile?.name || ""} disabled className="w-full px-3.5 py-2.5 bg-surface-tertiary border border-border-light rounded-xl text-sm text-text-tertiary" />
           </div>
           <div>
@@ -248,16 +316,197 @@ export default function ProfilePage() {
             <input value={profile?.category?.name || ""} disabled className="w-full px-3.5 py-2.5 bg-surface-tertiary border border-border-light rounded-xl text-sm text-text-tertiary" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">Owner / Manager Name</label>
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">
+              {isProfessional ? "Name" : "Owner / Manager Name"}
+            </label>
             <input value={profile?.user?.name || ""} disabled className="w-full px-3.5 py-2.5 bg-surface-tertiary border border-border-light rounded-xl text-sm text-text-tertiary" />
             <p className="text-xs text-text-tertiary mt-1">Set at registration — contact support to update</p>
           </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">About</label>
-            <textarea value={form.about} onChange={(e) => set("about", e.target.value)} rows={4} placeholder="Describe your business..." className="w-full px-3.5 py-2.5 border border-border-light rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none resize-none" />
+          {isProfessional && (
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1.5">Designation / Specialization</label>
+              <input
+                value={form.designation}
+                onChange={(e) => set("designation", e.target.value)}
+                placeholder={slug === "doctors" ? "e.g. MBBS, MD - General Physician" : "e.g. B.Pharm, Registered Pharmacist"}
+                className="w-full px-3.5 py-2.5 border border-border-light rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none"
+              />
+            </div>
+          )}
+          <div className={isProfessional ? "md:col-span-2" : "md:col-span-2"}>
+            <label className="block text-sm font-medium text-text-secondary mb-1.5">
+              {isProfessional ? "About Me" : "About"}
+            </label>
+            <textarea
+              value={form.about}
+              onChange={(e) => set("about", e.target.value)}
+              rows={4}
+              placeholder={isProfessional ? "Describe yourself, your expertise..." : "Describe your business..."}
+              className="w-full px-3.5 py-2.5 border border-border-light rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none resize-none"
+            />
           </div>
         </div>
       </div>
+
+      {/* ── Qualifications (doctors & pharmacists only) ── */}
+      {isProfessional && (
+        <div className="bg-white rounded-xl border border-border-light p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <GraduationCap size={18} className="text-primary" />
+              <h2 className="text-base font-semibold text-text-primary">Qualifications</h2>
+            </div>
+            <button
+              onClick={addQualification}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent border border-accent/30 rounded-lg hover:bg-accent/5 transition-colors"
+            >
+              <Plus size={14} /> Add
+            </button>
+          </div>
+
+          {qualifications.length === 0 ? (
+            <div className="text-center py-8 border-2 border-dashed border-border-light rounded-xl">
+              <GraduationCap size={28} className="text-text-tertiary mx-auto mb-2" />
+              <p className="text-sm text-text-tertiary">No qualifications added yet</p>
+              <button onClick={addQualification} className="mt-2 text-xs text-accent hover:underline">
+                + Add your first qualification
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {qualifications.map((q, i) => (
+                <div key={i} className="relative grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-surface-secondary rounded-xl border border-border-light">
+                  <button
+                    onClick={() => removeQualification(i)}
+                    className="absolute top-3 right-3 p-1 text-text-tertiary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">Degree / Certificate *</label>
+                    <input
+                      value={q.degree}
+                      onChange={(e) => updateQualification(i, "degree", e.target.value)}
+                      placeholder="e.g. MBBS, B.Pharm"
+                      className="w-full px-3 py-2 border border-border-light rounded-lg text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">Institution</label>
+                    <input
+                      value={q.institution}
+                      onChange={(e) => updateQualification(i, "institution", e.target.value)}
+                      placeholder="e.g. AIIMS, Delhi"
+                      className="w-full px-3 py-2 border border-border-light rounded-lg text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none bg-white"
+                    />
+                  </div>
+                  <div className="pr-8">
+                    <label className="block text-xs font-medium text-text-secondary mb-1">Year</label>
+                    <input
+                      value={q.year}
+                      onChange={(e) => updateQualification(i, "year", e.target.value)}
+                      placeholder="e.g. 2015"
+                      maxLength={4}
+                      className="w-full px-3 py-2 border border-border-light rounded-lg text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none bg-white"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Work Experience (doctors & pharmacists only) ── */}
+      {isProfessional && (
+        <div className="bg-white rounded-xl border border-border-light p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <Briefcase size={18} className="text-primary" />
+              <h2 className="text-base font-semibold text-text-primary">Work Experience</h2>
+            </div>
+            <button
+              onClick={addWorkExperience}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent border border-accent/30 rounded-lg hover:bg-accent/5 transition-colors"
+            >
+              <Plus size={14} /> Add
+            </button>
+          </div>
+
+          {workExperience.length === 0 ? (
+            <div className="text-center py-8 border-2 border-dashed border-border-light rounded-xl">
+              <Briefcase size={28} className="text-text-tertiary mx-auto mb-2" />
+              <p className="text-sm text-text-tertiary">No work experience added yet</p>
+              <button onClick={addWorkExperience} className="mt-2 text-xs text-accent hover:underline">
+                + Add your first experience
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {workExperience.map((w, i) => (
+                <div key={i} className="relative p-4 bg-surface-secondary rounded-xl border border-border-light">
+                  <button
+                    onClick={() => removeWorkExperience(i)}
+                    className="absolute top-3 right-3 p-1 text-text-tertiary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pr-8">
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">Role / Position *</label>
+                      <input
+                        value={w.role}
+                        onChange={(e) => updateWorkExperience(i, "role", e.target.value)}
+                        placeholder={slug === "doctors" ? "e.g. Senior Resident Doctor" : "e.g. Retail Pharmacist"}
+                        className="w-full px-3 py-2 border border-border-light rounded-lg text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">Hospital / Pharmacy</label>
+                      <input
+                        value={w.place}
+                        onChange={(e) => updateWorkExperience(i, "place", e.target.value)}
+                        placeholder="e.g. Apollo Hospital, Mumbai"
+                        className="w-full px-3 py-2 border border-border-light rounded-lg text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">From (Year)</label>
+                      <input
+                        value={w.from}
+                        onChange={(e) => updateWorkExperience(i, "from", e.target.value)}
+                        placeholder="e.g. 2018"
+                        maxLength={4}
+                        className="w-full px-3 py-2 border border-border-light rounded-lg text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-text-secondary mb-1">To (Year)</label>
+                      <input
+                        value={w.current ? "" : w.to}
+                        onChange={(e) => updateWorkExperience(i, "to", e.target.value)}
+                        placeholder="e.g. 2022"
+                        maxLength={4}
+                        disabled={w.current}
+                        className="w-full px-3 py-2 border border-border-light rounded-lg text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none bg-white disabled:bg-surface-tertiary disabled:text-text-tertiary"
+                      />
+                    </div>
+                  </div>
+                  <label className="mt-3 flex items-center gap-2 cursor-pointer w-fit">
+                    <input
+                      type="checkbox"
+                      checked={w.current}
+                      onChange={(e) => updateWorkExperience(i, "current", e.target.checked)}
+                      className="w-4 h-4 rounded accent-accent"
+                    />
+                    <span className="text-xs text-text-secondary font-medium">Currently working here</span>
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Contact */}
       <div className="bg-white rounded-xl border border-border-light p-6">
@@ -350,7 +599,6 @@ export default function ProfilePage() {
             <textarea value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} placeholder="Street address, landmark, etc." className="w-full px-3.5 py-2.5 border border-border-light rounded-xl text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none resize-none" />
           </div>
 
-          {/* Conditional Map Picker */}
           {!hideMapAndHours && (
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1.5">Pin Location on Map</label>
@@ -378,7 +626,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Conditional Business Hours */}
+      {/* Business Hours — hidden for professionals */}
       {!hideMapAndHours && (
         <div className="bg-white rounded-xl border border-border-light p-6">
           <div className="flex items-center gap-2 mb-5">

@@ -4,7 +4,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = Router();
 
-// ── Business: List my staff ──
+// ── Business: List my staff ──s
 router.get("/my", requireAuth, async (req: Request, res: Response) => {
   try {
     const business = await prisma.businessProfile.findUnique({

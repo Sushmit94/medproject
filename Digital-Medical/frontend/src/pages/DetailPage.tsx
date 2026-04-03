@@ -4,7 +4,7 @@ import {
   ChevronRight, MapPin, Clock, Phone, Star, Globe, BadgeCheck, Share2,
   Navigation, Send, Handshake, Stethoscope, Package, X, Search,
   ChevronLeft, ChevronRight as ChevronRightIcon, GraduationCap,
-  Briefcase, Award, Building2, ShieldCheck, FileText, Pill,
+  Briefcase, Award, Building2, ShieldCheck, FileText, Pill, CalendarDays,
 } from "lucide-react";
 import { SiWhatsapp, SiFacebook, SiInstagram, SiYoutube } from "react-icons/si";
 import {
@@ -22,6 +22,21 @@ import type { Listing } from "@/types";
 const PROFESSIONAL_SLUGS = ["doctors", "pharmacists", "medical-representatives"];
 const PHARMACY_SLUGS = ["medicals", "pharmacists"];
 const HOSPITAL_SLUGS = ["hospitals-clinics"];
+
+// ── Types for qual/exp ────────────────────────────────────────────────
+interface Qualification {
+  degree: string;
+  institution: string;
+  year: string;
+}
+
+interface WorkExperience {
+  role: string;
+  place: string;
+  from: string;
+  to: string;
+  current: boolean;
+}
 
 export default function DetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -119,6 +134,14 @@ export default function DetailPage() {
   const licenses: any[] = (rawProfile as any)?.licenses || [];
   const designation = rawProfile?.designation || "";
 
+  // ── Pull qualifications & work experience from the profile ──
+  const qualifications: Qualification[] = Array.isArray((rawProfile as any)?.qualifications)
+    ? (rawProfile as any).qualifications
+    : [];
+  const workExperience: WorkExperience[] = Array.isArray((rawProfile as any)?.workExperience)
+    ? (rawProfile as any).workExperience
+    : [];
+
   const planBorder: Record<string, string> = {
     platinum: "border-primary/30", gold: "border-amber-300/50",
     silver: "border-slate-300/50", free: "border-border-light",
@@ -209,30 +232,84 @@ export default function DetailPage() {
               </Section>
             )}
 
-            {/* ── PROFESSIONAL SECTIONS (Doctors, Pharmacists, MRs) ── */}
+            {/* ── PROFESSIONAL SECTIONS (Doctors & Pharmacists only) ── */}
             {isProfessional && (
               <>
-                {/* Qualification */}
-                {designation && (
-                  <Section title="Qualification" icon={<GraduationCap size={18} className="text-accent" />}>
-                    <InfoBullet text={designation} />
-                  </Section>
-                )}
-
-                {/* Work & Experience — show linked businesses from staff */}
-                {staffList.filter((s: any) => s.linkedUserId).length > 0 && (
-                  <Section title="Work & Experience" icon={<Briefcase size={18} className="text-accent" />}>
-                    <div className="space-y-2">
-                      {staffList.filter((s: any) => s.linkedUserId).map((s: any) => (
-                        <InfoBullet key={s.id} text={`${s.role || "Staff"} at ${(rawProfile as any)?.name || ""}`} />
+                {/* ── Qualifications ── */}
+                {qualifications.length > 0 && (
+                  <Section title="Qualifications" icon={<GraduationCap size={18} className="text-accent" />}>
+                    <div className="space-y-3">
+                      {qualifications.map((q, i) => (
+                        <div key={i} className="flex items-start gap-3 p-3 bg-surface-secondary rounded-xl">
+                          <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                            <GraduationCap size={16} className="text-accent" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-text-primary">{q.degree}</p>
+                            {q.institution && (
+                              <p className="text-xs text-text-secondary mt-0.5">{q.institution}</p>
+                            )}
+                            {q.year && (
+                              <span className="inline-block mt-1 text-[11px] font-medium px-2 py-0.5 bg-accent/10 text-accent rounded-full">
+                                {q.year}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </Section>
                 )}
 
-                {/* Licenses — e.g. Pharmacist Registration */}
+                {/* ── Work Experience ── */}
+                {workExperience.length > 0 && (
+                  <Section title="Work Experience" icon={<Briefcase size={18} className="text-accent" />}>
+                    <div className="relative">
+                      {/* Timeline line */}
+                      <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-border-light" />
+                      <div className="space-y-4">
+                        {workExperience.map((w, i) => (
+                          <div key={i} className="flex items-start gap-4 pl-2">
+                            {/* Timeline dot */}
+                            <div className={`relative z-10 w-5 h-5 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center ${w.current ? "border-accent bg-accent" : "border-border-light bg-white"}`}>
+                              {w.current && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                            <div className="flex-1 pb-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <p className="text-sm font-semibold text-text-primary">{w.role}</p>
+                                  {w.place && (
+                                    <p className="text-xs text-text-secondary mt-0.5 flex items-center gap-1">
+                                      <Building2 size={11} className="shrink-0" /> {w.place}
+                                    </p>
+                                  )}
+                                </div>
+                                {(w.from || w.to || w.current) && (
+                                  <span className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-text-tertiary bg-surface-secondary px-2 py-0.5 rounded-full">
+                                    <CalendarDays size={10} />
+                                    {w.from || "?"} — {w.current ? "Present" : (w.to || "?")}
+                                  </span>
+                                )}
+                              </div>
+                              {w.current && (
+                                <span className="inline-block mt-1.5 text-[10px] font-bold px-2 py-0.5 bg-green-100 text-green-700 rounded-full uppercase tracking-wide">
+                                  Currently Working
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </Section>
+                )}
+
+                {/* Licenses — e.g. Pharmacist / Doctor Registration */}
                 {licenses.length > 0 && (
-                  <Section title={catSlug === "pharmacists" ? "Pharmacist Registration" : catSlug === "doctors" ? "Medical Registration" : "Professional Registration"} icon={<Award size={18} className="text-accent" />}>
+                  <Section
+                    title={catSlug === "pharmacists" ? "Pharmacist Registration" : catSlug === "doctors" ? "Medical Registration" : "Professional Registration"}
+                    icon={<Award size={18} className="text-accent" />}
+                  >
                     <div className="space-y-2">
                       {licenses.map((lic) => (
                         <InfoBullet key={lic.id} text={`${lic.type}: ${lic.licenseNo}${lic.issuedBy ? ` — ${lic.issuedBy}` : ""}`} />
@@ -251,7 +328,6 @@ export default function DetailPage() {
                     {licenses.filter((l) => l.type?.toLowerCase().includes("drug") || l.type?.toLowerCase().includes("dl")).map((lic) => (
                       <InfoBullet key={lic.id} text={lic.licenseNo} />
                     ))}
-                    {/* Show all if none match drug filter */}
                     {licenses.filter((l) => l.type?.toLowerCase().includes("drug") || l.type?.toLowerCase().includes("dl")).length === 0 &&
                       licenses.map((lic) => <InfoBullet key={lic.id} text={`${lic.type}: ${lic.licenseNo}`} />)
                     }
@@ -296,7 +372,7 @@ export default function DetailPage() {
               </Section>
             )}
 
-            {/* ── Deals In (all categories) ── */}
+            {/* ── Deals In ── */}
             {deals.length > 0 && (
               <Section title="Deals In" icon={<Handshake size={18} className="text-accent" />}>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -453,6 +529,13 @@ export default function DetailPage() {
                 <QuickRow label="Reviews" value={String(reviews.length)} />
                 {listing.city && <QuickRow label="City" value={listing.city} />}
                 {designation && <QuickRow label="Speciality" value={designation} />}
+                {/* Show qualification count in sidebar for professionals */}
+                {isProfessional && qualifications.length > 0 && (
+                  <QuickRow label="Qualifications" value={String(qualifications.length)} />
+                )}
+                {isProfessional && workExperience.length > 0 && (
+                  <QuickRow label="Experience" value={`${workExperience.length} position${workExperience.length > 1 ? "s" : ""}`} />
+                )}
               </dl>
             </div>
 

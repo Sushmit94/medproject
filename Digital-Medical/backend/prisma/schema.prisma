@@ -296,6 +296,8 @@ model BusinessProfile {
   
   // Designation (for Doctors, Pharmacists, MRs)
   designation  String?
+  qualifications  Json?
+  workExperience  Json?
 
   // Flags
   status         BusinessStatus   @default(PENDING)

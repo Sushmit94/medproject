@@ -230,6 +230,8 @@ export interface BusinessProfile {
   image: string | null;
   coverImage: string | null;
   designation: string | null;
+  qualifications?: Array<{ degree: string; institution: string; year: string }> | null;
+  workExperience?: Array<{ role: string; place: string; from: string; to: string; current: boolean }> | null;
   status: string;
   supplyChainRole: string | null;
   subscriptionTier: string;
