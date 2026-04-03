@@ -1,19 +1,22 @@
 import { useState, useEffect } from "react";
-import { Link, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Building2, FileText, Users, Package, ShoppingCart,
   Bell, Star, Settings, LogOut, Menu, X, ChevronRight,
-  Clock, CheckCircle, AlertTriangle, Handshake, Stethoscope, Truck,
+  Clock, CheckCircle, Handshake, Stethoscope, Truck,
   Ticket, Briefcase, Tent, User, Link2, Check, XCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isProfessional } from "@/utils/categoryHelpers";
 import {
   staffLinkService,
-  notificationService, // Added to imports
+  notificationService,
   type StaffLinkRequest,
-  type StaffMember
+  type StaffMember,
 } from "@/lib/services";
+import { UnsavedChangesProvider, useUnsavedChangesContext } from "@/contexts/UnsavedChangesContext";
+import UnsavedChangesModal from "@/components/common/UnsavedChangesModal";
+
 import ProfilePage from "./business/ProfilePage";
 import LicensesPage from "./business/LicensesPage";
 import StaffPage from "./business/StaffPage";
@@ -29,35 +32,21 @@ import SuppliersPage from "./business/SuppliersPage";
 import SupplierDetailPage from "./business/SupplierDetailPage";
 import LinkedBusinessPage from "./business/LinkedBusinessPage";
 
-/* ── Notification Components ── */
+/* ── Notification unread count ── */
 function useUnreadCount() {
   const [count, setCount] = useState(0);
-
   useEffect(() => {
-    // 1. Function to fetch the data
     const fetchCount = () => {
       notificationService.list("limit=1")
-        .then((res) => {
-          setCount(res.unreadCount ?? 0);
-        })
-        .catch((err) => {
-          console.error("Failed to fetch notification count:", err);
-        });
+        .then((res) => setCount(res.unreadCount ?? 0))
+        .catch(() => { });
     };
-
-    // 2. Initial fetch on mount
     fetchCount();
-
-    // 3. Set up an interval to fetch every 30 seconds
-    const interval = setInterval(fetchCount, 1000);
-
-    // 4. Cleanup: clear the interval when the component unmounts
+    const interval = setInterval(fetchCount, 30000);
     return () => clearInterval(interval);
   }, []);
-
   return count;
 }
-
 
 function UnreadBadge() {
   const count = useUnreadCount();
@@ -69,10 +58,12 @@ function UnreadBadge() {
   );
 }
 
+/* ── Sidebar — uses guardedNavigate ── */
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const location = useLocation();
   const { logout, business } = useAuth();
   const navigate = useNavigate();
+  const { guardedNavigate } = useUnsavedChangesContext();
 
   const isProf = isProfessional(business?.category?.slug);
 
@@ -92,7 +83,9 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       ...(business?.category?.hasDealsIn ? [{ to: "/business/deals", icon: Handshake, label: "Deals In" }] : []),
       ...(business?.category?.hasProducts ? [{ to: "/business/products", icon: Package, label: "Products" }] : []),
       ...(business?.category?.hasServices ? [{ to: "/business/services", icon: Stethoscope, label: "Services" }] : []),
-      ...(business?.supplyChainRole === "RETAILER" || business?.supplyChainRole === "WHOLESALER" ? [{ to: "/business/suppliers", icon: Truck, label: "Suppliers" }] : []),
+      ...(business?.supplyChainRole === "RETAILER" || business?.supplyChainRole === "WHOLESALER"
+        ? [{ to: "/business/suppliers", icon: Truck, label: "Suppliers" }]
+        : []),
       { to: "/business/orders", icon: ShoppingCart, label: "Inquiries" },
       { to: "/business/coupons", icon: Ticket, label: "Coupons" },
       { to: "/business/camps", icon: Tent, label: "Camps" },
@@ -105,6 +98,10 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const isActive = (to: string, exact?: boolean) =>
     exact ? location.pathname === to : location.pathname.startsWith(to);
 
+  const handleNavClick = (to: string) => {
+    guardedNavigate(to);
+    onClose();
+  };
 
   return (
     <>
@@ -112,10 +109,10 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       <aside className={`fixed top-0 left-0 h-full w-64 bg-white border-r border-border z-50 flex flex-col transform transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="p-5 border-b border-border-light">
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2">
+            <button onClick={() => handleNavClick("/")} className="flex items-center gap-2">
               <img src="/images/logo-icon.png" alt="DM" className="w-8 h-8" />
               <span className="font-bold text-primary text-sm">Digital Medical</span>
-            </Link>
+            </button>
             <button onClick={onClose} className="lg:hidden text-text-tertiary"><X size={20} /></button>
           </div>
           {business && (
@@ -133,18 +130,17 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 
         <nav className="p-3 space-y-0.5 flex-1 overflow-y-auto">
           {links.map(({ to, icon: Icon, label, exact }) => (
-            <Link
+            <button
               key={to}
-              to={to}
-              onClick={onClose}
-              className={`flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-all ${isActive(to, exact)
+              onClick={() => handleNavClick(to)}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-all text-left ${isActive(to, exact)
                 ? "bg-accent/10 text-accent font-semibold"
                 : "text-text-secondary hover:bg-surface-tertiary"
                 }`}
             >
               <Icon size={18} />
               {label}
-            </Link>
+            </button>
           ))}
         </nav>
 
@@ -161,7 +157,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
-/* ── Professional Dashboard ── */
+/* ── Professional Dashboard Home ── */
 function ProfessionalDashboardHome() {
   const { business } = useAuth();
   const [linkedStaff, setLinkedStaff] = useState<StaffMember | null>(null);
@@ -179,9 +175,7 @@ function ProfessionalDashboardHome() {
         ]);
         if (linkRes.status === "fulfilled") setLinkedStaff(linkRes.value.data);
         if (reqRes.status === "fulfilled") setIncomingRequests(reqRes.value.data);
-      } catch { /* ignore */ } finally {
-        setLoading(false);
-      }
+      } catch { } finally { setLoading(false); }
     };
     load();
   }, []);
@@ -190,10 +184,7 @@ function ProfessionalDashboardHome() {
     try {
       await staffLinkService.accept(id);
       setMessage({ type: "success", text: "Request accepted! You are now linked." });
-      const [linkRes, reqRes] = await Promise.allSettled([
-        staffLinkService.myLink(),
-        staffLinkService.incomingRequests(),
-      ]);
+      const [linkRes, reqRes] = await Promise.allSettled([staffLinkService.myLink(), staffLinkService.incomingRequests()]);
       if (linkRes.status === "fulfilled") setLinkedStaff(linkRes.value.data);
       if (reqRes.status === "fulfilled") setIncomingRequests(reqRes.value.data);
     } catch (err: any) {
@@ -229,13 +220,10 @@ function ProfessionalDashboardHome() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-text-primary">
-          Welcome, {business?.name}
-        </h1>
+        <h1 className="text-2xl font-bold text-text-primary">Welcome, {business?.name}</h1>
         <p className="text-sm text-text-secondary mt-1">
           {business?.category?.slug === "doctors" ? "Doctor" :
-            business?.category?.slug === "pharmacists" ? "Pharmacist" :
-              "Medical Representative"} Dashboard
+            business?.category?.slug === "pharmacists" ? "Pharmacist" : "Medical Representative"} Dashboard
         </p>
       </div>
 
@@ -247,77 +235,46 @@ function ProfessionalDashboardHome() {
       )}
 
       <div className="bg-white rounded-xl border border-border-light p-6">
-        <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
-          <Link2 size={18} /> Linked Business
-        </h2>
+        <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2"><Link2 size={18} /> Linked Business</h2>
         {linkedStaff ? (
           <div className="flex items-center gap-4">
-            {linkedStaff.business?.image ? (
-              <img src={linkedStaff.business.image} alt="" className="w-14 h-14 rounded-xl object-cover" />
-            ) : (
-              <div className="w-14 h-14 bg-accent/10 rounded-xl flex items-center justify-center text-accent font-bold text-lg">
-                {linkedStaff.business?.name?.charAt(0)}
-              </div>
-            )}
+            {linkedStaff.business?.image
+              ? <img src={linkedStaff.business.image} alt="" className="w-14 h-14 rounded-xl object-cover" />
+              : <div className="w-14 h-14 bg-accent/10 rounded-xl flex items-center justify-center text-accent font-bold text-lg">{linkedStaff.business?.name?.charAt(0)}</div>}
             <div>
               <p className="font-semibold text-text-primary">{linkedStaff.business?.name}</p>
               <p className="text-sm text-text-secondary">{linkedStaff.business?.category?.name}</p>
-              {linkedStaff.business?.address && (
-                <p className="text-xs text-text-tertiary mt-1">{linkedStaff.business.address}</p>
-              )}
+              {linkedStaff.business?.address && <p className="text-xs text-text-tertiary mt-1">{linkedStaff.business.address}</p>}
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center py-6 text-center">
-            <div className="w-12 h-12 bg-surface-tertiary rounded-full flex items-center justify-center mb-3">
-              <Link2 size={20} className="text-text-tertiary" />
-            </div>
+            <div className="w-12 h-12 bg-surface-tertiary rounded-full flex items-center justify-center mb-3"><Link2 size={20} className="text-text-tertiary" /></div>
             <p className="text-sm text-text-tertiary">You are not linked to any business yet</p>
-            <p className="text-xs text-text-tertiary mt-1">
-              A hospital or pharmacy will send you a link request
-            </p>
+            <p className="text-xs text-text-tertiary mt-1">A hospital or pharmacy will send you a link request</p>
           </div>
         )}
       </div>
 
       {pendingRequests.length > 0 && (
         <div className="bg-white rounded-xl border border-border-light p-6">
-          <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
-            <Bell size={18} /> Pending Link Requests
-          </h2>
+          <h2 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2"><Bell size={18} /> Pending Link Requests</h2>
           <div className="space-y-3">
             {pendingRequests.map((req) => (
               <div key={req.id} className="flex items-center justify-between gap-4 p-3 bg-surface-secondary rounded-xl">
                 <div className="flex items-center gap-3">
-                  {req.business?.image ? (
-                    <img src={req.business.image} className="w-10 h-10 rounded-full object-cover" alt="" />
-                  ) : (
-                    <div className="w-10 h-10 bg-accent/10 rounded-full flex items-center justify-center text-accent font-bold text-sm">
-                      {req.business?.name?.charAt(0)}
-                    </div>
-                  )}
+                  {req.business?.image
+                    ? <img src={req.business.image} className="w-10 h-10 rounded-full object-cover" alt="" />
+                    : <div className="w-10 h-10 bg-accent/10 rounded-full flex items-center justify-center text-accent font-bold text-sm">{req.business?.name?.charAt(0)}</div>}
                   <div>
                     <p className="text-sm font-medium text-text-primary">{req.business?.name}</p>
-                    <p className="text-xs text-text-tertiary">
-                      {req.business?.category?.name} · {req.business?.address}
-                    </p>
+                    <p className="text-xs text-text-tertiary">{req.business?.category?.name} · {req.business?.address}</p>
                     {req.message && <p className="text-xs text-text-secondary mt-1 italic">"{req.message}"</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => handleReject(req.id)}
-                    className="p-2 text-text-tertiary hover:text-red-500 hover:bg-red-50 rounded-lg"
-                    title="Decline"
-                  >
-                    <XCircle size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleAccept(req.id)}
-                    className="px-3 py-1.5 text-sm text-white bg-accent rounded-lg hover:bg-accent/90 flex items-center gap-1"
-                  >
-                    <Check size={13} /> Accept
-                  </button>
+                  <button onClick={() => handleReject(req.id)} className="p-2 text-text-tertiary hover:text-red-500 hover:bg-red-50 rounded-lg" title="Decline"><XCircle size={18} /></button>
+                  <button onClick={() => handleAccept(req.id)} className="px-3 py-1.5 text-sm text-white bg-accent rounded-lg hover:bg-accent/90 flex items-center gap-1"><Check size={13} /> Accept</button>
                 </div>
               </div>
             ))}
@@ -331,12 +288,20 @@ function ProfessionalDashboardHome() {
 /* ── Business Dashboard Home ── */
 function BusinessDashboardHome() {
   const { business } = useAuth();
+  const { guardedNavigate } = useUnsavedChangesContext();
 
   const stats = [
     { label: "Profile Views", value: "0", icon: Building2, color: "text-primary bg-primary/10" },
     { label: "Inquiries", value: "0", icon: ShoppingCart, color: "text-accent bg-accent/10" },
     { label: "Reviews", value: "0", icon: Star, color: "text-yellow-500 bg-yellow-50" },
     { label: "Staff Members", value: "0", icon: Users, color: "text-green-500 bg-green-50" },
+  ];
+
+  const quickActions = [
+    { label: "Complete Your Profile", to: "/business/profile", desc: "Add photos, timings, and more" },
+    { label: "Upload Licenses", to: "/business/licenses", desc: "Add drug license, GST certificate" },
+    { label: "Add Staff Members", to: "/business/staff", desc: "Manage your team" },
+    { label: "Add Products", to: "/business/products", desc: "List your products (Manufacturers/Wholesalers)" },
   ];
 
   return (
@@ -351,9 +316,7 @@ function BusinessDashboardHome() {
           <Clock size={20} className="text-yellow-600 shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold text-yellow-800">Approval Pending</p>
-            <p className="text-xs text-yellow-700 mt-0.5">
-              Your business profile is under review. You'll be notified once approved.
-            </p>
+            <p className="text-xs text-yellow-700 mt-0.5">Your business profile is under review. You'll be notified once approved.</p>
           </div>
         </div>
       )}
@@ -371,9 +334,7 @@ function BusinessDashboardHome() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s) => (
           <div key={s.label} className="bg-white rounded-xl border border-border-light p-5">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${s.color}`}>
-              <s.icon size={20} />
-            </div>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${s.color}`}><s.icon size={20} /></div>
             <p className="text-2xl font-bold text-text-primary mt-3">{s.value}</p>
             <p className="text-xs text-text-secondary mt-0.5">{s.label}</p>
           </div>
@@ -384,23 +345,18 @@ function BusinessDashboardHome() {
         <div className="bg-white rounded-xl border border-border-light p-6">
           <h3 className="text-base font-semibold text-text-primary mb-4">Quick Actions</h3>
           <div className="space-y-2">
-            {[
-              { label: "Complete Your Profile", to: "/business/profile", desc: "Add photos, timings, and more" },
-              { label: "Upload Licenses", to: "/business/licenses", desc: "Add drug license, GST certificate" },
-              { label: "Add Staff Members", to: "/business/staff", desc: "Manage your team" },
-              { label: "Add Products", to: "/business/products", desc: "List your products (Manufacturers/Wholesalers)" },
-            ].map((action) => (
-              <Link
+            {quickActions.map((action) => (
+              <button
                 key={action.to}
-                to={action.to}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-surface-tertiary transition-colors group"
+                onClick={() => guardedNavigate(action.to)}
+                className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-tertiary transition-colors group text-left"
               >
                 <div>
                   <p className="text-sm font-medium text-text-primary">{action.label}</p>
                   <p className="text-xs text-text-tertiary">{action.desc}</p>
                 </div>
                 <ChevronRight size={16} className="text-text-tertiary group-hover:text-primary transition-colors" />
-              </Link>
+              </button>
             ))}
           </div>
         </div>
@@ -416,51 +372,62 @@ function BusinessDashboardHome() {
   );
 }
 
-/* ── Dashboard Home Wrapper ── */
 function DashboardHome() {
   const { business } = useAuth();
   const isProf = isProfessional(business?.category?.slug);
   return isProf ? <ProfessionalDashboardHome /> : <BusinessDashboardHome />;
 }
 
-export default function BusinessDashboardLayout() {
+/* ── Global modal rendered at layout level ── */
+function GlobalUnsavedModal() {
+  const { showModal, saving, confirmLeave, cancelLeave, saveAndLeave } = useUnsavedChangesContext();
+  return (
+    <UnsavedChangesModal
+      open={showModal}
+      saving={saving}
+      onDiscard={confirmLeave}
+      onStay={cancelLeave}
+      onSaveAndLeave={saveAndLeave}
+    />
+  );
+}
+
+/* ── Inner layout ── */
+function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user } = useAuth();
+  const { guardedNavigate } = useUnsavedChangesContext();
 
   return (
     <div className="min-h-screen bg-surface-secondary">
+      <GlobalUnsavedModal />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="lg:pl-64">
-        {/* Top bar */}
         <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-border-light px-6 py-4 flex items-center justify-between">
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 text-text-secondary hover:bg-surface-tertiary rounded-lg">
             <Menu size={20} />
           </button>
           <div />
           <div className="flex items-center gap-3">
-            {/* Updated Notification Link with UnreadBadge */}
-            <Link to="/business/notifications" className="relative p-2 text-text-secondary hover:bg-surface-tertiary rounded-lg inline-flex">
+            <button
+              onClick={() => guardedNavigate("/business/notifications")}
+              className="relative p-2 text-text-secondary hover:bg-surface-tertiary rounded-lg inline-flex"
+            >
               <Bell size={18} />
               <UnreadBadge />
-            </Link>
-
+            </button>
             {user && (
               <div className="flex items-center gap-2 pl-2 border-l border-border-light">
                 <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
-                  <span className="text-xs font-bold text-accent">
-                    {user.name.charAt(0).toUpperCase()}
-                  </span>
+                  <span className="text-xs font-bold text-accent">{user.name.charAt(0).toUpperCase()}</span>
                 </div>
-                <span className="text-sm font-medium text-text-primary hidden sm:block">
-                  {user.name}
-                </span>
+                <span className="text-sm font-medium text-text-primary hidden sm:block">{user.name}</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-6 max-w-6xl mx-auto">
           <Routes>
             <Route index element={<DashboardHome />} />
@@ -482,5 +449,14 @@ export default function BusinessDashboardLayout() {
         </div>
       </div>
     </div>
+  );
+}
+
+/* ── Final Wrapped Component ── */
+export default function BusinessDashboard() {
+  return (
+    <UnsavedChangesProvider>
+      <DashboardLayout />
+    </UnsavedChangesProvider>
   );
 }
