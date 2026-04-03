@@ -5,7 +5,7 @@ export const PROFESSIONAL_SLUGS = [
 ];
 
 export const LINKING_RULES: Record<string, string[]> = {
-  'hospitals-clinics': ['doctors', 'medicals'],
+  'hospitals-clinics': ['doctors', 'medicals', 'laboratories'],
   'medicals': ['pharmacists'],
   'diagnostics': ['doctors'],
   'laboratories': ['doctors'],

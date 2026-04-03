@@ -86,13 +86,15 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       ...(business?.supplyChainRole === "RETAILER" || business?.supplyChainRole === "WHOLESALER"
         ? [{ to: "/business/suppliers", icon: Truck, label: "Suppliers" }]
         : []),
-      { to: "/business/orders", icon: ShoppingCart, label: "Inquiries" },
-      { to: "/business/coupons", icon: Ticket, label: "Coupons" },
-      { to: "/business/camps", icon: Tent, label: "Camps" },
-      { to: "/business/jobs", icon: Briefcase, label: "Jobs" },
-      { to: "/business/reviews", icon: Star, label: "Reviews" },
-      { to: "/business/notifications", icon: Bell, label: "Notifications" },
-      { to: "/business/settings", icon: Settings, label: "Settings" },
+      ...(business?.category?.slug !== "laboratories" ? [
+        { to: "/business/orders", icon: ShoppingCart, label: "Inquiries" },
+        { to: "/business/coupons", icon: Ticket, label: "Coupons" },
+        { to: "/business/camps", icon: Tent, label: "Camps" },
+        { to: "/business/jobs", icon: Briefcase, label: "Jobs" },
+        { to: "/business/reviews", icon: Star, label: "Reviews" },
+      ] : []),
+      { to: "/business/notifications", icon: Bell, label: "Notifications" },  // ← always shown
+      { to: "/business/settings", icon: Settings, label: "Settings" },         // ← always shown
     ];
 
   const isActive = (to: string, exact?: boolean) =>
