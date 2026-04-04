@@ -9,7 +9,7 @@ import {
 import { SiWhatsapp, SiFacebook, SiInstagram, SiYoutube } from "react-icons/si";
 import {
   businessService, reviewService, dealService, businessServiceService,
-  productService,
+  productService, tpaInsuranceService, type TpaInsuranceCompany,
   type BusinessProfile, type Review, type Deal, type BusinessServiceItem,
   type Product,
 } from "@/lib/services";
@@ -52,6 +52,7 @@ export default function DetailPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [services, setServices] = useState<BusinessServiceItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [tpaCompanies, setTpaCompanies] = useState<TpaInsuranceCompany[]>([]);
   const [productTotal, setProductTotal] = useState(0);
 
   const [showProductsModal, setShowProductsModal] = useState(false);
@@ -79,6 +80,7 @@ export default function DetailPage() {
         dealService.forBusiness(res.id).then((dr) => setDeals(dr.data)).catch(() => { });
         businessServiceService.forBusiness(res.id).then((sr) => setServices(sr.data)).catch(() => { });
         productService.publicForBusiness(res.id, "limit=6").then((pr) => { setProducts(pr.data); setProductTotal(pr.pagination.total); }).catch(() => { });
+        tpaInsuranceService.forBusiness(res.id).then((tr) => setTpaCompanies(tr.data)).catch(() => { });
       })
       .catch(() => setError("Failed to load business details"))
       .finally(() => setLoading(false));
@@ -134,7 +136,6 @@ export default function DetailPage() {
   const licenses: any[] = (rawProfile as any)?.licenses || [];
   const designation = rawProfile?.designation || "";
 
-  // ── Pull qualifications & work experience from the profile ──
   const qualifications: Qualification[] = Array.isArray((rawProfile as any)?.qualifications)
     ? (rawProfile as any).qualifications
     : [];
@@ -225,17 +226,15 @@ export default function DetailPage() {
               </div>
             </div>
 
-            {/* ── About / About Me ── */}
+            {/* About */}
             {listing.description && (
               <Section title={isProfessional ? "About Me" : "About Us"} icon={<FileText size={18} className="text-accent" />}>
                 <p className="text-sm text-text-secondary leading-relaxed">{listing.description}</p>
               </Section>
             )}
 
-            {/* ── PROFESSIONAL SECTIONS (Doctors & Pharmacists only) ── */}
             {isProfessional && (
               <>
-                {/* ── Qualifications ── */}
                 {qualifications.length > 0 && (
                   <Section title="Qualifications" icon={<GraduationCap size={18} className="text-accent" />}>
                     <div className="space-y-3">
@@ -246,9 +245,7 @@ export default function DetailPage() {
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-text-primary">{q.degree}</p>
-                            {q.institution && (
-                              <p className="text-xs text-text-secondary mt-0.5">{q.institution}</p>
-                            )}
+                            {q.institution && <p className="text-xs text-text-secondary mt-0.5">{q.institution}</p>}
                             {q.year && (
                               <span className="inline-block mt-1 text-[11px] font-medium px-2 py-0.5 bg-accent/10 text-accent rounded-full">
                                 {q.year}
@@ -261,16 +258,13 @@ export default function DetailPage() {
                   </Section>
                 )}
 
-                {/* ── Work Experience ── */}
                 {workExperience.length > 0 && (
                   <Section title="Work Experience" icon={<Briefcase size={18} className="text-accent" />}>
                     <div className="relative">
-                      {/* Timeline line */}
                       <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-border-light" />
                       <div className="space-y-4">
                         {workExperience.map((w, i) => (
                           <div key={i} className="flex items-start gap-4 pl-2">
-                            {/* Timeline dot */}
                             <div className={`relative z-10 w-5 h-5 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center ${w.current ? "border-accent bg-accent" : "border-border-light bg-white"}`}>
                               {w.current && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                             </div>
@@ -304,7 +298,6 @@ export default function DetailPage() {
                   </Section>
                 )}
 
-                {/* Licenses — e.g. Pharmacist / Doctor Registration */}
                 {licenses.length > 0 && (
                   <Section
                     title={catSlug === "pharmacists" ? "Pharmacist Registration" : catSlug === "doctors" ? "Medical Registration" : "Professional Registration"}
@@ -320,7 +313,6 @@ export default function DetailPage() {
               </>
             )}
 
-            {/* ── PHARMACY / MEDICAL STORE SECTIONS ── */}
             {isPharmacy && licenses.length > 0 && (
               <>
                 <Section title="Medical DL Number" icon={<ShieldCheck size={18} className="text-accent" />}>
@@ -349,7 +341,7 @@ export default function DetailPage() {
               </>
             )}
 
-            {/* ── HOSPITAL SECTIONS ── */}
+            {/* HOSPITAL SECTIONS */}
             {isHospital && staffList.length > 0 && (
               <Section title="Our Doctors & Staff" icon={<Building2 size={18} className="text-accent" />}>
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -372,7 +364,40 @@ export default function DetailPage() {
               </Section>
             )}
 
-            {/* ── Deals In ── */}
+            {/* ── TPA & Insurance ── */}
+            {isHospital && tpaCompanies.length > 0 && (
+              <Section title="TPA & Insurance Accepted" icon={<ShieldCheck size={18} className="text-accent" />}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {tpaCompanies.filter((c) => c.type === "TPA").length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-2">TPA</p>
+                      <div className="space-y-1.5">
+                        {tpaCompanies.filter((c) => c.type === "TPA").map((c) => (
+                          <div key={c.id} className="flex items-center gap-2 text-sm text-text-secondary">
+                            <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                            {c.name}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {tpaCompanies.filter((c) => c.type === "INSURANCE").length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-2">Insurance</p>
+                      <div className="space-y-1.5">
+                        {tpaCompanies.filter((c) => c.type === "INSURANCE").map((c) => (
+                          <div key={c.id} className="flex items-center gap-2 text-sm text-text-secondary">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                            {c.name}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Section>
+            )}
+
             {deals.length > 0 && (
               <Section title="Deals In" icon={<Handshake size={18} className="text-accent" />}>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -389,7 +414,6 @@ export default function DetailPage() {
               </Section>
             )}
 
-            {/* ── Services ── */}
             {services.length > 0 && (
               <Section title="Services" icon={<Stethoscope size={18} className="text-accent" />}>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -407,7 +431,6 @@ export default function DetailPage() {
               </Section>
             )}
 
-            {/* ── Location ── */}
             {(listing.address || listing.city) && (
               <Section title="Location">
                 <div className="h-56 rounded-xl overflow-hidden border border-border-light">
@@ -429,7 +452,6 @@ export default function DetailPage() {
               </Section>
             )}
 
-            {/* ── Reviews ── */}
             <div className="bg-white rounded-xl border border-border-light p-5 sm:p-6">
               <h2 className="text-base font-bold mb-4">Reviews ({reviews.length})</h2>
               {user && (
@@ -518,7 +540,6 @@ export default function DetailPage() {
               )}
             </div>
 
-            {/* Quick Info */}
             <div className="bg-white rounded-xl border border-border-light p-5">
               <h3 className="text-sm font-bold mb-3">Quick Info</h3>
               <dl className="space-y-2 text-sm">
@@ -529,7 +550,6 @@ export default function DetailPage() {
                 <QuickRow label="Reviews" value={String(reviews.length)} />
                 {listing.city && <QuickRow label="City" value={listing.city} />}
                 {designation && <QuickRow label="Speciality" value={designation} />}
-                {/* Show qualification count in sidebar for professionals */}
                 {isProfessional && qualifications.length > 0 && (
                   <QuickRow label="Qualifications" value={String(qualifications.length)} />
                 )}
@@ -539,7 +559,6 @@ export default function DetailPage() {
               </dl>
             </div>
 
-            {/* Products */}
             {products.length > 0 && (
               <div className="bg-white rounded-xl border border-border-light p-5">
                 <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
@@ -587,16 +606,6 @@ export default function DetailPage() {
                 <span className="text-xs font-medium px-1.5 py-0.5 bg-accent/10 text-accent rounded-full">{modalTotal}</span>
               </div>
               <button onClick={() => setShowProductsModal(false)} className="p-1.5 rounded-lg hover:bg-surface-secondary"><X size={18} className="text-text-tertiary" /></button>
-            </div>
-            <div className="p-4 border-b border-border-light shrink-0">
-              <div className="relative">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
-                <input type="text" value={modalSearch}
-                  onChange={(e) => { const val = e.target.value; setModalSearch(val); setModalPage(1); fetchModalProducts(1, val); }}
-                  placeholder="Search products..."
-                  className="w-full pl-9 pr-4 py-2 rounded-lg border border-border-light text-sm focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none"
-                />
-              </div>
             </div>
             <div className="overflow-y-auto flex-1 p-4">
               {modalLoading ? <div className="text-center py-12 text-sm text-text-tertiary">Loading...</div> :

@@ -309,7 +309,9 @@ model BusinessProfile {
   // Subscription
   subscriptionTier      SubscriptionTier @default(FREE)
   subscriptionExpiresAt DateTime?
+  tpaSelections  BusinessTpaSelection[]
 
+  
   // Supply chain (only for Manufacturers, Wholesalers, Retailers)
   supplyChainRole SupplyChainRole?
 
@@ -529,6 +531,28 @@ model BusinessService {
   @@index([businessId])
 }
 
+
+//TPA AND INSURANC model
+model TpaInsuranceCompany {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   // "TPA" or "INSURANCE"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  selections BusinessTpaSelection[]
+}
+
+model BusinessTpaSelection {
+  id         String              @id @default(cuid())
+  businessId String
+  business   BusinessProfile     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  companyId  String
+  company    TpaInsuranceCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime            @default(now())
+
+  @@unique([businessId, companyId])
+}
 // ─────────────────────────────────────────────
 // ORDER INQUIRIES (no money, just inquiry flow)
 // ─────────────────────────────────────────────

@@ -965,3 +965,25 @@ export const contactService = {
     message: string;
   }) => api.post("/inquiries/contact", data),
 };
+// ── TPA & Insurance ──
+export interface TpaInsuranceCompany {
+  id: string;
+  name: string;
+  type: "TPA" | "INSURANCE";
+  isActive: boolean;
+  createdAt: string;
+}
+
+export const tpaInsuranceService = {
+  list: () => api.get<{ data: TpaInsuranceCompany[] }>("/tpa-insurance"),
+  mySelections: () => api.get<{ data: string[] }>("/tpa-insurance/my"),
+  saveSelections: (companyIds: string[]) =>
+    api.put<{ message: string }>("/tpa-insurance/my", { companyIds }),
+  forBusiness: (businessId: string) =>
+    api.get<{ data: TpaInsuranceCompany[] }>(`/tpa-insurance/business/${businessId}`),
+  create: (data: { name: string; type: "TPA" | "INSURANCE" }) =>
+    api.post<{ data: TpaInsuranceCompany }>("/tpa-insurance", data),
+  update: (id: string, data: Partial<TpaInsuranceCompany>) =>
+    api.patch<{ data: TpaInsuranceCompany }>(`/tpa-insurance/${id}`, data),
+  delete: (id: string) => api.delete(`/tpa-insurance/${id}`),
+};

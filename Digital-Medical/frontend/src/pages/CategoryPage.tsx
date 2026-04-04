@@ -5,6 +5,7 @@ import { categoryService, businessService, type CategoryDetail } from "@/lib/ser
 import { mapBusinessProfileToListing } from "@/lib/publicMappers";
 import ListingCard from "@/components/common/ListingCard";
 import type { Listing, Plan } from "@/types";
+import { mapBusinessCardToListing } from "@/lib/publicMappers";
 
 const SORT_OPTIONS = [
   { value: "relevance", label: "Relevance" },
@@ -27,16 +28,31 @@ export default function CategoryPage() {
 
   useEffect(() => {
     if (!slug) return;
+
     setLoading(true);
     setError(null);
+
+    // This is the specific logic you were told to add
     categoryService.getBySlug(slug).then((cat) => {
+      // TEMPORARY LOG: Check if this ID matches your database BusinessProfile.categoryId
+      console.log("Category ID:", cat.id, "Category:", cat.name);
+
       setCategory(cat);
+
+      // Fetch businesses using that specific ID
       return businessService.list(`categoryId=${cat.id}&limit=100`);
-    }).then((res) => {
-      setRawListings(res.data.map((b) => mapBusinessProfileToListing(b)));
-    }).catch((err) => {
-      setError(err?.message || "Failed to load category");
-    }).finally(() => setLoading(false));
+    })
+      .then((res) => {
+        console.log("Businesses returned from API:", res.data.length, res.data);
+        setRawListings(res.data.map((b, i) => mapBusinessCardToListing(b, i)));
+      })
+      .catch((err) => {
+        console.error("Fetch error:", err);
+        setError(err?.message || "Failed to load category");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [slug]);
 
   const listings = useMemo(() => {

@@ -32,6 +32,7 @@ import supplierRoutes from "./routes/supplier.routes.js";
 import otpRoutes from "./routes/otp.routes.js";
 import { runDailyTasks } from "./lib/cron.js";
 import { errorHandler } from "./middleware/error.js";
+import tpaInsuranceRoutes from "./routes/tpaInsurance.routes.js";
 
 dotenv.config();
 
@@ -93,7 +94,7 @@ app.use("/api/business-services", businessServiceRoutes);
 app.use("/api/product-categories", productCategoryRoutes);
 app.use("/api/suppliers", supplierRoutes);
 app.use("/api/otp", otpRoutes);
-
+app.use("/api/tpa-insurance", tpaInsuranceRoutes);
 // Error handler
 app.use(errorHandler);
 

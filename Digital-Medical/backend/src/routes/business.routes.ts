@@ -64,10 +64,11 @@ router.get("/", async (req: Request, res: Response) => {
         return;
       }
     } else if (!supplyChainRole) {
-      // No role filter — default public view excludes wholesalers & manufacturers
-      where.supplyChainRole = { notIn: ["WHOLESALER", "MANUFACTURER"] };
+      where.OR = [
+        { supplyChainRole: null },
+        { supplyChainRole: { notIn: ["WHOLESALER", "MANUFACTURER"] } },
+      ];
     }
-
     if (subCategoryId) {
       where.subcategories = { some: { subCategoryId: String(subCategoryId) } };
     }

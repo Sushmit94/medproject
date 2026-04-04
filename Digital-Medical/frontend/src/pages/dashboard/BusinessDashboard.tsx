@@ -5,6 +5,7 @@ import {
   Bell, Star, Settings, LogOut, Menu, X, ChevronRight,
   Clock, CheckCircle, Handshake, Stethoscope, Truck,
   Ticket, Briefcase, Tent, User, Link2, Check, XCircle,
+  ShieldCheck, // Added ShieldCheck
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isProfessional } from "@/utils/categoryHelpers";
@@ -31,6 +32,7 @@ import ServicesPage from "./business/ServicesPage";
 import SuppliersPage from "./business/SuppliersPage";
 import SupplierDetailPage from "./business/SupplierDetailPage";
 import LinkedBusinessPage from "./business/LinkedBusinessPage";
+import BusinessTpaInsurancePage from "./business/TpaInsurancePage"; // Added Import
 
 /* ── Notification unread count ── */
 function useUnreadCount() {
@@ -80,6 +82,8 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       { to: "/business/profile", icon: Building2, label: "Business Profile" },
       { to: "/business/licenses", icon: FileText, label: "Licenses" },
       { to: "/business/staff", icon: Users, label: "Staff" },
+      // Added TPA & Insurance conditional link
+      ...(business?.category?.slug === "hospitals-clinics" ? [{ to: "/business/tpa-insurance", icon: ShieldCheck, label: "TPA & Insurance" }] : []),
       ...(business?.category?.hasDealsIn ? [{ to: "/business/deals", icon: Handshake, label: "Deals In" }] : []),
       ...(business?.category?.hasProducts ? [{ to: "/business/products", icon: Package, label: "Products" }] : []),
       ...(business?.category?.hasServices ? [{ to: "/business/services", icon: Stethoscope, label: "Services" }] : []),
@@ -93,8 +97,8 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         { to: "/business/jobs", icon: Briefcase, label: "Jobs" },
         { to: "/business/reviews", icon: Star, label: "Reviews" },
       ] : []),
-      { to: "/business/notifications", icon: Bell, label: "Notifications" },  // ← always shown
-      { to: "/business/settings", icon: Settings, label: "Settings" },         // ← always shown
+      { to: "/business/notifications", icon: Bell, label: "Notifications" },
+      { to: "/business/settings", icon: Settings, label: "Settings" },
     ];
 
   const isActive = (to: string, exact?: boolean) =>
@@ -436,6 +440,7 @@ function DashboardLayout() {
             <Route path="profile" element={<ProfilePage />} />
             <Route path="licenses" element={<LicensesPage />} />
             <Route path="staff" element={<StaffPage />} />
+            <Route path="tpa-insurance" element={<BusinessTpaInsurancePage />} /> {/* Added Route */}
             <Route path="linked" element={<LinkedBusinessPage />} />
             <Route path="deals" element={<DealsPage />} />
             <Route path="products" element={<ProductsPage />} />

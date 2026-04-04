@@ -4,10 +4,12 @@ import {
   LayoutDashboard, Users, Building2, MapPin, Tag, FileText,
   Megaphone, Newspaper, CalendarDays, Bell, Settings, LogOut,
   Menu, X, TrendingUp, Clock, CheckCircle, XCircle,
-  UserPlus, Shield, Image, MessageSquare,
+  UserPlus, Shield, Image, MessageSquare, ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { adminService } from "@/lib/services";
+
+// Page Imports
 import UsersPage from "./admin/UsersPage";
 import BusinessesPage from "./admin/BusinessesPage";
 import CategoriesPage from "./admin/CategoriesPage";
@@ -20,6 +22,7 @@ import GalleryPage from "./admin/GalleryPage";
 import AdminNotificationsPage from "./admin/NotificationsPage";
 import AdminSettingsPage from "./admin/SettingsPage";
 import ReviewsPage from "./admin/ReviewsPage";
+import TpaInsuranceAdminPage from "./admin/TpaInsurancePage";
 
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const location = useLocation();
@@ -41,6 +44,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         { to: "/super-admin/categories", icon: Tag, label: "Categories" },
         { to: "/super-admin/locations", icon: MapPin, label: "Locations" },
         { to: "/super-admin/licenses", icon: FileText, label: "Licenses" },
+        { to: "/super-admin/tpa-insurance", icon: ShieldCheck, label: "TPA & Insurance" },
         { to: "/super-admin/reviews", icon: MessageSquare, label: "Reviews" },
       ],
     },
@@ -88,19 +92,18 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
                   const Icon = link.icon;
                   const exact = "exact" in link ? link.exact : false;
                   return (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    onClick={onClose}
-                    className={`flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-lg transition-all ${
-                      isActive(link.to, exact) || (exact && location.pathname === link.to)
-                        ? "bg-primary/20 text-primary font-medium"
-                        : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                    }`}
-                  >
-                    <Icon size={17} />
-                    {link.label}
-                  </Link>
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      onClick={onClose}
+                      className={`flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-lg transition-all ${isActive(link.to, exact) || (exact && location.pathname === link.to)
+                          ? "bg-primary/20 text-primary font-medium"
+                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                        }`}
+                    >
+                      <Icon size={17} />
+                      {link.label}
+                    </Link>
                   );
                 })}
               </div>
@@ -128,7 +131,7 @@ function AdminDashboardHome() {
   useEffect(() => {
     adminService.dashboard()
       .then((res) => setStats(res.data))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   }, []);
 
@@ -240,6 +243,7 @@ export default function SuperAdminDashboardLayout() {
             <Route path="categories" element={<CategoriesPage />} />
             <Route path="locations" element={<LocationsPage />} />
             <Route path="licenses" element={<AdminLicensesPage />} />
+            <Route path="tpa-insurance" element={<TpaInsuranceAdminPage />} />
             <Route path="reviews" element={<ReviewsPage />} />
             <Route path="ads" element={<AdsPage />} />
             <Route path="news" element={<ContentPage />} />
