@@ -5,17 +5,18 @@ import { searchService } from "@/lib/services";
 import { mapBusinessCardToListing } from "@/lib/publicMappers";
 import ListingCard from "@/components/common/ListingCard";
 import type { Listing } from "@/types";
+import { useLocation as useAppLocation } from "@/contexts/LocationContext";
 
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
   const q = searchParams.get("q") || "";
-  const city = searchParams.get("city") || "";
 
   const [sortBy, setSortBy] = useState("relevance");
   const [results, setResults] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const { city: contextCity } = useAppLocation();
+  const city = searchParams.get("city") || contextCity || "";
   useEffect(() => {
     setLoading(true);
     setError(null);

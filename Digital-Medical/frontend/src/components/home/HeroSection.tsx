@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import {
   Search, MapPin, ChevronDown, ArrowRight,
   Shield, Users, Building2, Star,
-  Stethoscope, Pill, FlaskConical, Ambulance,
-  Droplets, Briefcase, CalendarDays, Newspaper,
-  HeartPulse, ChevronRight, Phone,
+  Phone,
 } from "lucide-react";
+import { useLocation as useAppLocation } from "@/contexts/LocationContext";
 
+// Constants and Data
 const cities = [
   "All India", "Mumbai", "Delhi", "Bengaluru", "Hyderabad",
   "Chennai", "Pune", "Kolkata", "Ahmedabad",
@@ -55,13 +55,12 @@ const categoryCards = [
   },
 ];
 
-// Keep this in sync with the threshold in Header.tsx
 const HERO_SEARCH_THRESHOLD = 200;
 const TRANSITION_RANGE = 60;
 
 export default function HeroSection() {
   const [query, setQuery] = useState("");
-  const [city, setCity] = useState("All India");
+  const { city, setCity } = useAppLocation();
   const [searchMorphProgress, setSearchMorphProgress] = useState(0);
   const navigate = useNavigate();
 
@@ -83,14 +82,13 @@ export default function HeroSection() {
     }
   };
 
-  // Hero search fades out and scales down as navbar search fades in
   const heroSearchOpacity = 1 - searchMorphProgress;
   const heroSearchScale = 1 - searchMorphProgress * 0.04;
   const heroSearchTranslateY = -searchMorphProgress * 12;
 
   return (
     <section className="bg-white font-sans text-slate-900">
-      {/* ── Emergency strip ───────────────────────────── */}
+      {/* Emergency strip */}
       <div className="bg-slate-900 text-white text-[10px] font-medium py-1.5 px-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex gap-4">
@@ -104,10 +102,8 @@ export default function HeroSection() {
         </div>
       </div>
 
-      {/* ── Main Hero Content ─────────────────────────── */}
       <div className="pt-6 pb-4 px-4 bg-slate-50/50">
         <div className="max-w-7xl mx-auto">
-          {/* Headline Section */}
           <div className="text-center mb-6">
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
               Find & Book <span className="text-orange-500">Top Healthcare</span> Services
@@ -117,18 +113,11 @@ export default function HeroSection() {
             </p>
           </div>
 
-          {/*
-            ── HERO SEARCH BAR ────────────────────────────────────────────
-            This is the "source" of the morph. It fades + slides up as the
-            navbar version fades in. We use a wrapper div to smoothly
-            collapse its layout height too, so content below doesn't jump.
-          */}
           <div
             style={{
               opacity: heroSearchOpacity,
               transform: `translateY(${heroSearchTranslateY}px) scale(${heroSearchScale})`,
               transition: "opacity 0.1s ease, transform 0.1s ease",
-              // Collapse height smoothly so the section below doesn't jump
               maxHeight: `${(1 - searchMorphProgress) * 80 + 10}px`,
               overflow: "hidden",
               pointerEvents: searchMorphProgress > 0.5 ? "none" : "auto",
@@ -136,17 +125,20 @@ export default function HeroSection() {
           >
             <form onSubmit={handleSearch} className="max-w-4xl mx-auto mb-4">
               <div className="flex bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-200 overflow-hidden p-1">
+
+                {/* ── REPLACED BLOCK START ── */}
                 <div className="relative flex items-center pl-3 pr-2 bg-slate-50 rounded-lg min-w-[130px]">
                   <MapPin size={14} className="text-emerald-500 shrink-0 mr-1.5" />
-                  <select
+                  <input
+                    type="text"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    className="bg-transparent text-xs font-bold text-slate-700 appearance-none pr-6 cursor-pointer focus:outline-none py-2.5 w-full"
-                  >
-                    {cities.map((c) => <option key={c}>{c}</option>)}
-                  </select>
-                  <ChevronDown size={12} className="absolute right-2 text-slate-400 pointer-events-none" />
+                    placeholder="City"
+                    className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none py-2.5 w-full"
+                  />
                 </div>
+                {/* ── REPLACED BLOCK END ── */}
+
                 <div className="flex-1 relative">
                   <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -197,11 +189,9 @@ export default function HeroSection() {
         </div>
       </div>
 
-      {/* ── Visual Section ─────────────────── */}
+      {/* Visual Section */}
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[240px]">
-
-          {/* Main Banner */}
           <div className="flex-1 relative rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shadow-sm min-h-[180px]">
             <img
               src="https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?w=900&h=400&fit=crop"
@@ -222,7 +212,6 @@ export default function HeroSection() {
             </div>
           </div>
 
-          {/* Category Cards */}
           <div className="flex gap-3 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
             {categoryCards.map((card) => (
               <button

@@ -5,6 +5,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Header from "@/components/common/Header";
 import Footer from "@/components/common/Footer";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
+import { LocationProvider } from "@/contexts/LocationContext";
+import LocationPermissionModal from "@/components/common/LocationPermissionModal";
 
 /* Lazy-loaded pages */
 const HomePage = lazy(() => import("@/pages/HomePage"));
@@ -106,6 +108,7 @@ function AppLayout() {
         </Suspense>
       </main>
       {!isDashboard && !isAdminLogin && <Footer />}
+      <LocationPermissionModal />
     </div>
   );
 }
@@ -113,16 +116,18 @@ function AppLayout() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppLayout />
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 3000,
-            style: { fontSize: "14px", borderRadius: "8px" },
-          }}
-        />
-      </AuthProvider>
+      <LocationProvider>
+        <AuthProvider>
+          <AppLayout />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 3000,
+              style: { fontSize: "14px", borderRadius: "8px" },
+            }}
+          />
+        </AuthProvider>
+      </LocationProvider>
     </BrowserRouter>
   );
 }

@@ -8,7 +8,8 @@ const router = Router();
 // ── Global search across all businesses ──
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const { q, cityId, areaId, page = "1", limit = "20" } = req.query;
+    // 1. Destructure including 'city'
+    const { q, city, cityId, areaId, page = "1", limit = "20" } = req.query;
 
     if (!q || typeof q !== "string" || q.length < 2) {
       res.status(400).json({ error: "Search query must be at least 2 characters" });
@@ -19,10 +20,8 @@ router.get("/", async (req: Request, res: Response) => {
     const skip = (Number(page) - 1) * take;
     const searchTerm = q.trim();
 
-    // Search in business name + search keywords
     const where: any = {
       status: "ACTIVE",
-      // Exclude wholesalers and manufacturers from public search
       OR: [
         { supplyChainRole: null },
         { supplyChainRole: "RETAILER" },
@@ -39,11 +38,20 @@ router.get("/", async (req: Request, res: Response) => {
       ],
     };
 
-    // Location filter
+    // 2. Location filter — priority: areaId > cityId > city name string
     if (areaId) {
       where.areaId = areaId;
     } else if (cityId) {
       where.area = { cityId };
+    } else if (city && typeof city === "string" && city !== "All India") {
+      // NEW: look up city by name, then filter by its id
+      const cityRecord = await prisma.city.findFirst({
+        where: { name: { contains: city.trim(), mode: "insensitive" } },
+        select: { id: true },
+      });
+      if (cityRecord) {
+        where.area = { cityId: cityRecord.id };
+      }
     }
 
     const [results, total] = await Promise.all([
@@ -104,7 +112,7 @@ router.get("/products", async (req: Request, res: Response) => {
       return;
     }
 
-    // Require auth for product search — verify token properly
+    // Require auth for product search
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
       res.status(401).json({ error: "Login required to search products" });
@@ -175,7 +183,8 @@ router.get("/products", async (req: Request, res: Response) => {
         totalPages: Math.ceil(total / take),
       },
     });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Product search failed" });
   }
 });

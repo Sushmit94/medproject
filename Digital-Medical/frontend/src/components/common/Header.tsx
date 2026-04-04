@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation as useRouterLocation, useNavigate } from "react-router-dom";
 import {
   Search, MapPin, ChevronDown, Menu, X, Phone,
   Building2, Stethoscope, Pill, Microscope, Heart,
@@ -7,11 +7,7 @@ import {
   LogIn, User, LogOut,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-
-const cities = [
-  "All India", "Mumbai", "Delhi", "Bengaluru", "Hyderabad",
-  "Chennai", "Pune", "Kolkata", "Ahmedabad", "Jaipur", "Surat", "Lucknow",
-];
+import { useLocation as useAppLocation } from "@/contexts/LocationContext";
 
 const navLinks = [
   { label: "Hospitals", to: "/category/hospitals-clinics", icon: Building2 },
@@ -26,18 +22,17 @@ const navLinks = [
   { label: "News", to: "/news", icon: Newspaper },
 ];
 
-// How many px from top the hero search bar is. Adjust if your layout differs.
 const HERO_SEARCH_THRESHOLD = 200;
 
 export default function Header() {
   const [query, setQuery] = useState("");
-  const [city, setCity] = useState("All India");
+  const { city, setCity } = useAppLocation();
   const [cityOpen, setCityOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  // 0 = search fully in hero, 1 = search fully in navbar
   const [morphProgress, setMorphProgress] = useState(0);
-  const location = useLocation();
+
+  const routerLocation = useRouterLocation();
   const navigate = useNavigate();
   const { user, logout, isAdmin, isBusiness } = useAuth();
 
@@ -46,7 +41,6 @@ export default function Header() {
       const y = window.scrollY;
       setScrolled(y > 10);
 
-      // Progress goes from 0→1 over a 60px scroll window around the threshold
       const TRANSITION_RANGE = 60;
       const start = HERO_SEARCH_THRESHOLD - 30;
       const progress = Math.min(1, Math.max(0, (y - start) / TRANSITION_RANGE));
@@ -56,7 +50,9 @@ export default function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => { setMobileOpen(false); }, [location]);
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [routerLocation.pathname]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +62,6 @@ export default function Header() {
     }
   };
 
-  // Derived state
   const showNavSearch = morphProgress > 0;
   const isFullyMorphed = morphProgress === 1;
 
@@ -106,26 +101,11 @@ export default function Header() {
 
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2 shrink-0 group">
-              <img
-                src="/images/logo-icon.png"
-                alt="Digital Medical"
-                className="w-10 h-10 object-contain sm:hidden"
-              />
-              <img
-                src="/images/logo-full.png"
-                alt="Digital Medical"
-                className="hidden sm:block h-10 object-contain"
-              />
+              <img src="/images/logo-icon.png" alt="DM" className="w-10 h-10 object-contain sm:hidden" />
+              <img src="/images/logo-full.png" alt="Digital Medical" className="hidden sm:block h-10 object-contain" />
             </Link>
 
-            {/*
-              ── MORPHING SEARCH BAR ────────────────────────────────────────
-              This is the key element. It uses inline styles driven by
-              morphProgress (0→1) to animate from invisible/offset to fully
-              visible in the navbar. The cubic-bezier easing is applied via
-              will-change + transition only when NOT scrolling (on mount/cleanup).
-              During active scroll we set values directly for responsiveness.
-            */}
+            {/* MORPHING SEARCH BAR */}
             <div
               className="hidden md:flex items-center gap-2 flex-1 min-w-0"
               style={{
@@ -137,41 +117,47 @@ export default function Header() {
                 overflow: "hidden",
               }}
             >
-              {/* City selector */}
+              {/* REPLACED CITY SELECTOR START */}
               <div className="relative shrink-0">
                 <button
                   onClick={() => setCityOpen(!cityOpen)}
                   className="flex items-center gap-2 px-3.5 py-2 text-sm bg-surface-tertiary rounded-lg hover:bg-surface-secondary border border-transparent hover:border-border transition-all whitespace-nowrap"
                 >
                   <MapPin size={14} className="text-primary" />
-                  <span className="text-text-primary font-medium max-w-24 truncate">{city}</span>
+                  <span className="text-text-primary font-medium max-w-28 truncate">{city}</span>
                   <ChevronDown size={13} className={`text-text-tertiary transition-transform duration-200 ${cityOpen ? "rotate-180" : ""}`} />
                 </button>
                 {cityOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setCityOpen(false)} />
-                    <div className="absolute top-full left-0 mt-2 w-52 bg-white rounded-xl shadow-xl shadow-slate-900/10 border border-border-light p-1.5 z-20 max-h-72 overflow-y-auto">
-                      {cities.map((c) => (
-                        <button
-                          key={c}
-                          onClick={() => { setCity(c); setCityOpen(false); }}
-                          className={`w-full text-left px-3 py-2.5 text-sm rounded-lg transition-colors ${city === c
-                              ? "bg-primary text-white font-medium"
-                              : "text-text-secondary hover:bg-surface-tertiary"
-                            }`}
-                        >
-                          {c}
-                        </button>
-                      ))}
+                    <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-border-light p-1.5 z-20">
+
+                      <div className="max-h-52 overflow-y-auto">
+                        {["All India", "Mumbai", "Delhi", "Bengaluru", "Hyderabad", "Chennai",
+                          "Pune", "Kolkata", "Ahmedabad", "Jaipur", "Lucknow", "Meerut",
+                          "Noida", "Ghaziabad", "Agra", "Varanasi"].map((c) => (
+                            <button
+                              key={c}
+                              onClick={() => { setCity(c); setCityOpen(false); }}
+                              className={`w-full text-left px-3 py-2.5 text-sm rounded-lg transition-colors ${city === c
+                                ? "bg-primary text-white font-medium"
+                                : "text-text-secondary hover:bg-surface-tertiary"
+                                }`}
+                            >
+                              {c}
+                            </button>
+                          ))}
+                      </div>
                     </div>
                   </>
                 )}
               </div>
+              {/* REPLACED CITY SELECTOR END */}
 
-              {/* Search bar */}
+              {/* Search input field */}
               <form
                 onSubmit={handleSearch}
-                className="flex flex-1 bg-surface-tertiary rounded-xl overflow-hidden border border-transparent focus-within:border-primary/30 focus-within:bg-white focus-within:shadow-md focus-within:shadow-primary/5 transition-all"
+                className="flex flex-1 bg-surface-tertiary rounded-xl overflow-hidden border border-transparent focus-within:border-primary/30 focus-within:bg-white focus-within:shadow-md transition-all"
               >
                 <div className="relative flex-1">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
@@ -180,7 +166,7 @@ export default function Header() {
                     placeholder="Search doctors, hospitals, clinics..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2.5 text-sm bg-transparent focus:outline-none placeholder:text-text-tertiary"
+                    className="w-full pl-10 pr-3 py-2.5 text-sm bg-transparent focus:outline-none"
                   />
                 </div>
                 <button
@@ -196,7 +182,7 @@ export default function Header() {
             <div className="flex items-center gap-1.5 ml-auto">
               <Link
                 to="/for-business"
-                className="hidden lg:flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-primary border border-primary/20 rounded-lg hover:bg-primary-light hover:border-primary/30 transition-all"
+                className="hidden lg:flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-primary border border-primary/20 rounded-lg hover:bg-primary-light transition-all"
               >
                 <Building2 size={14} />
                 List Business
@@ -206,7 +192,7 @@ export default function Header() {
                 <>
                   <Link
                     to={isAdmin ? "/super-admin" : isBusiness ? "/business" : "/"}
-                    className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-tertiary rounded-lg transition-all"
+                    className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-surface-tertiary rounded-lg"
                   >
                     <User size={15} />
                     {user.name.split(" ")[0]}
@@ -216,34 +202,24 @@ export default function Header() {
                       logout();
                       navigate(isAdmin ? "/super-admin/login" : isBusiness ? "/business/login" : "/");
                     }}
-                    className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                    className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg"
                   >
                     <LogOut size={15} />
                   </button>
                 </>
               ) : (
-                <>
-                  <Link
-                    to="/business/login"
-                    className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-primary hover:text-primary-dark hover:bg-primary-light rounded-lg transition-all"
-                  >
-                    <Building2 size={15} />
-                    Business Login
-                  </Link>
-                  <Link
-                    to="/login"
-                    className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-tertiary rounded-lg transition-all"
-                  >
-                    <LogIn size={15} />
-                    Login
-                  </Link>
-                </>
+                <Link
+                  to="/login"
+                  className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-surface-tertiary rounded-lg"
+                >
+                  <LogIn size={15} />
+                  Login
+                </Link>
               )}
 
               <button
                 onClick={() => setMobileOpen(!mobileOpen)}
-                className="md:hidden p-2.5 text-text-secondary hover:text-text-primary rounded-lg hover:bg-surface-tertiary transition-colors"
-                aria-label="Toggle menu"
+                className="md:hidden p-2.5 text-text-secondary rounded-lg hover:bg-surface-tertiary"
               >
                 {mobileOpen ? <X size={22} /> : <Menu size={22} />}
               </button>
@@ -256,15 +232,15 @@ export default function Header() {
           <div className="max-w-7xl mx-auto px-6">
             <div className="flex items-center gap-0 overflow-x-auto scrollbar-none -mb-px">
               {navLinks.map((link) => {
-                const isActive = location.pathname.startsWith(link.to);
+                const isActive = routerLocation.pathname.startsWith(link.to);
                 const Icon = link.icon;
                 return (
                   <Link
                     key={link.to}
                     to={link.to}
-                    className={`flex items-center gap-1.5 px-4 py-3 text-[13px] font-medium whitespace-nowrap border-b-2 transition-all ${isActive
-                        ? "border-primary text-primary"
-                        : "border-transparent text-text-secondary hover:text-primary hover:border-primary/30"
+                    className={`flex items-center gap-1.5 px-4 py-3 text-[13px] font-medium border-b-2 transition-all ${isActive
+                      ? "border-primary text-primary"
+                      : "border-transparent text-text-secondary hover:text-primary"
                       }`}
                   >
                     <Icon size={14} />
@@ -280,10 +256,10 @@ export default function Header() {
         {mobileOpen && (
           <div className="md:hidden border-t border-border-light bg-white animate-fade-in">
             <div className="p-5 space-y-4">
-              <form onSubmit={handleSearch} className="flex bg-surface-tertiary rounded-xl overflow-hidden">
+              <form onSubmit={handleSearch} className="flex bg-surface-tertiary rounded-xl overflow-hidden border border-border">
                 <input
                   type="text"
-                  placeholder="Search doctors, hospitals..."
+                  placeholder="Search doctors..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   className="flex-1 px-4 py-3 text-sm bg-transparent focus:outline-none"
@@ -293,25 +269,29 @@ export default function Header() {
                 </button>
               </form>
 
-              <select
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="w-full px-4 py-3 text-sm border border-border rounded-xl bg-white"
-              >
-                {cities.map((c) => <option key={c}>{c}</option>)}
-              </select>
+              {/* Mobile City Selector (Free Text) */}
+              <div className="relative flex items-center px-4 py-3 bg-surface-tertiary rounded-xl border border-border">
+                <MapPin size={16} className="text-primary mr-2" />
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="City (e.g. Mumbai)"
+                  className="bg-transparent text-sm w-full focus:outline-none"
+                />
+              </div>
 
               <div className="grid grid-cols-2 gap-2">
                 {navLinks.map((link) => {
                   const Icon = link.icon;
-                  const isActive = location.pathname.startsWith(link.to);
+                  const isActive = routerLocation.pathname.startsWith(link.to);
                   return (
                     <Link
                       key={link.to}
                       to={link.to}
                       className={`flex items-center gap-2.5 px-3.5 py-3 text-sm rounded-xl transition-all ${isActive
-                          ? "bg-primary-light text-primary font-medium"
-                          : "text-text-secondary hover:bg-surface-tertiary"
+                        ? "bg-primary-light text-primary font-medium"
+                        : "text-text-secondary hover:bg-surface-tertiary"
                         }`}
                     >
                       <Icon size={16} className={isActive ? "text-primary" : "text-text-tertiary"} />
@@ -319,39 +299,6 @@ export default function Header() {
                     </Link>
                   );
                 })}
-              </div>
-
-              <div className="flex gap-2 pt-3 border-t border-border-light">
-                <a href="tel:108" className="flex-1 flex items-center justify-center gap-2 py-3 bg-red-50 text-red-600 text-sm font-bold rounded-xl">
-                  <Phone size={14} /> 108
-                </a>
-                <a href="tel:112" className="flex-1 flex items-center justify-center gap-2 py-3 bg-red-50 text-red-600 text-sm font-bold rounded-xl">
-                  <Phone size={14} /> 112
-                </a>
-              </div>
-
-              <div className="flex gap-2 pt-1">
-                {user ? (
-                  <button
-                    onClick={() => {
-                      logout();
-                      navigate(isAdmin ? "/super-admin/login" : isBusiness ? "/business/login" : "/");
-                      setMobileOpen(false);
-                    }}
-                    className="flex-1 py-3 text-center text-sm font-medium border border-red-200 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
-                  >
-                    Sign Out
-                  </button>
-                ) : (
-                  <>
-                    <Link to="/business/login" className="flex-1 py-3 text-center text-sm font-medium border border-primary/30 rounded-xl text-primary hover:bg-primary-light transition-colors">
-                      Business Login
-                    </Link>
-                    <Link to="/login" className="flex-1 py-3 text-center text-sm font-medium border border-border rounded-xl text-text-secondary hover:bg-surface-tertiary transition-colors">
-                      Login
-                    </Link>
-                  </>
-                )}
               </div>
             </div>
           </div>
