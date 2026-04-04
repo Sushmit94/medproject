@@ -6,6 +6,61 @@ export interface PaginatedResponse<T> {
   pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
+
+// ── PSU Organizations ──
+export interface PsuOrganization {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export const psuService = {
+  // Public — active only (used by hospital selection page)
+  list: () => api.get<{ data: PsuOrganization[] }>("/psu"),
+  // Admin — all (active + inactive)
+  listAll: () => api.get<{ data: PsuOrganization[] }>("/psu?all=true"),
+  mySelections: () => api.get<{ data: string[] }>("/psu/my"),
+  saveSelections: (orgIds: string[]) =>
+    api.put<{ message: string }>("/psu/my", { orgIds }),
+  forBusiness: (businessId: string) =>
+    api.get<{ data: { id: string; name: string }[] }>(`/psu/business/${businessId}`),
+  create: (data: { name: string }) =>
+    api.post<{ data: PsuOrganization }>("/psu", data),
+  update: (id: string, data: Partial<PsuOrganization>) =>
+    api.patch<{ data: PsuOrganization }>(`/psu/${id}`, data),
+  delete: (id: string) => api.delete(`/psu/${id}`),
+};
+
+// ── Accreditation Bodies ──
+export interface AccreditationBody {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export const accreditationService = {
+  // Public — active only
+  list: () => api.get<{ data: AccreditationBody[] }>("/accreditation"),
+  // Admin — all
+  listAll: () => api.get<{ data: AccreditationBody[] }>("/accreditation?all=true"),
+  mySelections: () => api.get<{ data: string[] }>("/accreditation/my"),
+  saveSelections: (bodyIds: string[]) =>
+    api.put<{ message: string }>("/accreditation/my", { bodyIds }),
+  forBusiness: (businessId: string) =>
+    api.get<{ data: { id: string; name: string }[] }>(
+      `/accreditation/business/${businessId}`
+    ),
+  create: (data: { name: string }) =>
+    api.post<{ data: AccreditationBody }>("/accreditation", data),
+  update: (id: string, data: Partial<AccreditationBody>) =>
+    api.patch<{ data: AccreditationBody }>(`/accreditation/${id}`, data),
+  delete: (id: string) => api.delete(`/accreditation/${id}`),
+};
+
+
+
 // ── Upload ──
 export const uploadService = {
   image: (file: File, folder?: string) => {

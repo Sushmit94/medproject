@@ -310,6 +310,8 @@ model BusinessProfile {
   subscriptionTier      SubscriptionTier @default(FREE)
   subscriptionExpiresAt DateTime?
   tpaSelections  BusinessTpaSelection[]
+  psuSelections           BusinessPsuSelection[]       // ADD THIS
+  accreditationSelections BusinessAccreditationSelection[] // ADD THIS
 
   
   // Supply chain (only for Manufacturers, Wholesalers, Retailers)
@@ -553,6 +555,50 @@ model BusinessTpaSelection {
 
   @@unique([businessId, companyId])
 }
+
+
+
+model PsuOrganization {
+  id        String   @id @default(cuid())
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+ 
+  selections BusinessPsuSelection[]
+}
+ 
+model BusinessPsuSelection {
+  id         String          @id @default(cuid())
+  businessId String
+  business   BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orgId      String
+  org        PsuOrganization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt  DateTime        @default(now())
+ 
+  @@unique([businessId, orgId])
+}
+ 
+model AccreditationBody {
+  id        String   @id @default(cuid())
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+ 
+  selections BusinessAccreditationSelection[]
+}
+ 
+model BusinessAccreditationSelection {
+  id         String            @id @default(cuid())
+  businessId String
+  business   BusinessProfile   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  bodyId     String
+  body       AccreditationBody @relation(fields: [bodyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime          @default(now())
+ 
+  @@unique([businessId, bodyId])
+}
+
+
 // ─────────────────────────────────────────────
 // ORDER INQUIRIES (no money, just inquiry flow)
 // ─────────────────────────────────────────────

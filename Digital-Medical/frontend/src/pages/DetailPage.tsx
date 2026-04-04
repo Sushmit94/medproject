@@ -9,9 +9,9 @@ import {
 import { SiWhatsapp, SiFacebook, SiInstagram, SiYoutube } from "react-icons/si";
 import {
   businessService, reviewService, dealService, businessServiceService,
-  productService, tpaInsuranceService, type TpaInsuranceCompany,
-  type BusinessProfile, type Review, type Deal, type BusinessServiceItem,
-  type Product,
+  productService, tpaInsuranceService, psuService, accreditationService,
+  type TpaInsuranceCompany, type BusinessProfile, type Review, type Deal,
+  type BusinessServiceItem, type Product,
 } from "@/lib/services";
 import { mapBusinessProfileToListing } from "@/lib/publicMappers";
 import { useAuth } from "@/contexts/AuthContext";
@@ -53,6 +53,8 @@ export default function DetailPage() {
   const [services, setServices] = useState<BusinessServiceItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [tpaCompanies, setTpaCompanies] = useState<TpaInsuranceCompany[]>([]);
+  const [psuOrgs, setPsuOrgs] = useState<{ id: string; name: string }[]>([]);
+  const [accreditations, setAccreditations] = useState<{ id: string; name: string }[]>([]);
   const [productTotal, setProductTotal] = useState(0);
 
   const [showProductsModal, setShowProductsModal] = useState(false);
@@ -76,11 +78,24 @@ export default function DetailPage() {
         setListing(mapBusinessProfileToListing(res));
         setRawProfile(res);
         setBusinessId(res.id);
+
+        // Parallel fetches
         reviewService.forBusiness(res.id, "limit=20").then((rr) => setReviews(rr.data)).catch(() => { });
         dealService.forBusiness(res.id).then((dr) => setDeals(dr.data)).catch(() => { });
         businessServiceService.forBusiness(res.id).then((sr) => setServices(sr.data)).catch(() => { });
         productService.publicForBusiness(res.id, "limit=6").then((pr) => { setProducts(pr.data); setProductTotal(pr.pagination.total); }).catch(() => { });
         tpaInsuranceService.forBusiness(res.id).then((tr) => setTpaCompanies(tr.data)).catch(() => { });
+
+        // Hospital specific fetches
+        if (res.category?.slug === "hospitals-clinics") {
+          psuService.forBusiness(res.id)
+            .then((r) => setPsuOrgs(r.data ?? []))
+            .catch(() => { });
+
+          accreditationService.forBusiness(res.id)
+            .then((r) => setAccreditations(r.data ?? []))
+            .catch(() => { });
+        }
       })
       .catch(() => setError("Failed to load business details"))
       .finally(() => setLoading(false));
@@ -398,6 +413,38 @@ export default function DetailPage() {
               </Section>
             )}
 
+            {/* ── PSU Empanelments ── */}
+            {isHospital && psuOrgs.length > 0 && (
+              <Section title="PSU Empanelments" icon={<Building2 size={18} className="text-blue-600" />}>
+                <div className="flex flex-wrap gap-2">
+                  {psuOrgs.map((org) => (
+                    <span
+                      key={org.id}
+                      className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-sm font-medium"
+                    >
+                      {org.name}
+                    </span>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {/* ── Accreditations ── */}
+            {isHospital && accreditations.length > 0 && (
+              <Section title="Accreditations" icon={<Award size={18} className="text-purple-600" />}>
+                <div className="flex flex-wrap gap-2">
+                  {accreditations.map((acc) => (
+                    <span
+                      key={acc.id}
+                      className="px-3 py-1.5 bg-purple-50 text-purple-700 border border-purple-100 rounded-full text-sm font-medium"
+                    >
+                      {acc.name}
+                    </span>
+                  ))}
+                </div>
+              </Section>
+            )}
+
             {deals.length > 0 && (
               <Section title="Deals In" icon={<Handshake size={18} className="text-accent" />}>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -586,7 +633,7 @@ export default function DetailPage() {
                 {productTotal > 6 && (
                   <button onClick={openProductsModal}
                     className="mt-3 w-full py-2 rounded-lg border border-accent text-accent text-xs font-semibold hover:bg-accent/5 transition-colors">
-                    View all {productTotal} products →
+                    View All Products
                   </button>
                 )}
               </div>

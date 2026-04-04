@@ -5,7 +5,7 @@ import {
   Bell, Star, Settings, LogOut, Menu, X, ChevronRight,
   Clock, CheckCircle, Handshake, Stethoscope, Truck,
   Ticket, Briefcase, Tent, User, Link2, Check, XCircle,
-  ShieldCheck, // Added ShieldCheck
+  ShieldCheck, Award
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isProfessional } from "@/utils/categoryHelpers";
@@ -32,7 +32,9 @@ import ServicesPage from "./business/ServicesPage";
 import SuppliersPage from "./business/SuppliersPage";
 import SupplierDetailPage from "./business/SupplierDetailPage";
 import LinkedBusinessPage from "./business/LinkedBusinessPage";
-import BusinessTpaInsurancePage from "./business/TpaInsurancePage"; // Added Import
+import BusinessTpaInsurancePage from "./business/TpaInsurancePage";
+import BusinessPsuPage from "./business/PsuPage";
+import BusinessAccreditationPage from "./business/AccreditationPage";
 
 /* ── Notification unread count ── */
 function useUnreadCount() {
@@ -68,6 +70,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { guardedNavigate } = useUnsavedChangesContext();
 
   const isProf = isProfessional(business?.category?.slug);
+  const isHospital = business?.category?.slug === "hospitals-clinics";
 
   const links = isProf
     ? [
@@ -82,8 +85,12 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       { to: "/business/profile", icon: Building2, label: "Business Profile" },
       { to: "/business/licenses", icon: FileText, label: "Licenses" },
       { to: "/business/staff", icon: Users, label: "Staff" },
-      // Added TPA & Insurance conditional link
-      ...(business?.category?.slug === "hospitals-clinics" ? [{ to: "/business/tpa-insurance", icon: ShieldCheck, label: "TPA & Insurance" }] : []),
+      // Hospital Specific Management Links
+      ...(isHospital ? [
+        { to: "/business/tpa-insurance", icon: ShieldCheck, label: "TPA & Insurance" },
+        { to: "/business/psu", icon: Building2, label: "PSU" },
+        { to: "/business/accreditation", icon: Award, label: "Accreditations" }
+      ] : []),
       ...(business?.category?.hasDealsIn ? [{ to: "/business/deals", icon: Handshake, label: "Deals In" }] : []),
       ...(business?.category?.hasProducts ? [{ to: "/business/products", icon: Package, label: "Products" }] : []),
       ...(business?.category?.hasServices ? [{ to: "/business/services", icon: Stethoscope, label: "Services" }] : []),
@@ -401,8 +408,9 @@ function GlobalUnsavedModal() {
 /* ── Inner layout ── */
 function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, business } = useAuth();
   const { guardedNavigate } = useUnsavedChangesContext();
+  const isHospital = business?.category?.slug === "hospitals-clinics";
 
   return (
     <div className="min-h-screen bg-surface-secondary">
@@ -440,7 +448,9 @@ function DashboardLayout() {
             <Route path="profile" element={<ProfilePage />} />
             <Route path="licenses" element={<LicensesPage />} />
             <Route path="staff" element={<StaffPage />} />
-            <Route path="tpa-insurance" element={<BusinessTpaInsurancePage />} /> {/* Added Route */}
+            <Route path="tpa-insurance" element={<BusinessTpaInsurancePage />} />
+            <Route path="psu" element={<BusinessPsuPage />} />
+            <Route path="accreditation" element={<BusinessAccreditationPage />} />
             <Route path="linked" element={<LinkedBusinessPage />} />
             <Route path="deals" element={<DealsPage />} />
             <Route path="products" element={<ProductsPage />} />

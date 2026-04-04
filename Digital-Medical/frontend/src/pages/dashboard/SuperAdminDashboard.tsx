@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, Building2, MapPin, Tag, FileText,
   Megaphone, Newspaper, CalendarDays, Bell, Settings, LogOut,
   Menu, X, TrendingUp, Clock, CheckCircle, XCircle,
-  UserPlus, Shield, Image, MessageSquare, ShieldCheck,
+  UserPlus, Shield, Image, MessageSquare, ShieldCheck, Award
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { adminService } from "@/lib/services";
@@ -23,6 +23,8 @@ import AdminNotificationsPage from "./admin/NotificationsPage";
 import AdminSettingsPage from "./admin/SettingsPage";
 import ReviewsPage from "./admin/ReviewsPage";
 import TpaInsuranceAdminPage from "./admin/TpaInsurancePage";
+import AdminPsuPage from "./admin/PsuPage";
+import AdminAccreditationPage from "./admin/AccreditationPage";
 
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const location = useLocation();
@@ -45,6 +47,8 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         { to: "/super-admin/locations", icon: MapPin, label: "Locations" },
         { to: "/super-admin/licenses", icon: FileText, label: "Licenses" },
         { to: "/super-admin/tpa-insurance", icon: ShieldCheck, label: "TPA & Insurance" },
+        { to: "/super-admin/psu", icon: Building2, label: "PSU Organizations" },
+        { to: "/super-admin/accreditation", icon: Award, label: "Accreditations" },
         { to: "/super-admin/reviews", icon: MessageSquare, label: "Reviews" },
       ],
     },
@@ -97,8 +101,8 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
                       to={link.to}
                       onClick={onClose}
                       className={`flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-lg transition-all ${isActive(link.to, exact) || (exact && location.pathname === link.to)
-                          ? "bg-primary/20 text-primary font-medium"
-                          : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                        ? "bg-primary/20 text-primary font-medium"
+                        : "text-slate-400 hover:bg-slate-800 hover:text-white"
                         }`}
                     >
                       <Icon size={17} />
@@ -244,6 +248,8 @@ export default function SuperAdminDashboardLayout() {
             <Route path="locations" element={<LocationsPage />} />
             <Route path="licenses" element={<AdminLicensesPage />} />
             <Route path="tpa-insurance" element={<TpaInsuranceAdminPage />} />
+            <Route path="psu" element={<AdminPsuPage />} />
+            <Route path="accreditation" element={<AdminAccreditationPage />} />
             <Route path="reviews" element={<ReviewsPage />} />
             <Route path="ads" element={<AdsPage />} />
             <Route path="news" element={<ContentPage />} />

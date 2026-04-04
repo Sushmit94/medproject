@@ -95,9 +95,12 @@ app.use("/api/product-categories", productCategoryRoutes);
 app.use("/api/suppliers", supplierRoutes);
 app.use("/api/otp", otpRoutes);
 app.use("/api/tpa-insurance", tpaInsuranceRoutes);
+import psuRoutes from "./routes/psu.routes.js";
+import accreditationRoutes from "./routes/accreditation.routes.js";
 // Error handler
 app.use(errorHandler);
-
+app.use("/api/psu", psuRoutes);
+app.use("/api/accreditation", accreditationRoutes);
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 
